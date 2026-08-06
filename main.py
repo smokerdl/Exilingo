@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 
 from PyQt6.QtWidgets import QApplication
 
@@ -8,10 +7,10 @@ from core.log_reader import LogReaderThread
 from core.log_parser import ChatMessage
 from core.models import MessageContext
 from core.translation_manager import TranslationManager
+from core.config_manager import config
+from core.provider_registry import ProviderRegistry
 
 from ui.chat_overlay import ChatOverlay, GlobalHotkeyListener
-
-from providers.google_translate import GoogleTranslateTranslator
 
 
 # Стандартные пути к логам PoE (Standalone и Steam)
@@ -21,29 +20,6 @@ DEFAULT_LOG_PATHS = [
     r"D:\SteamLibrary\steamapps\common\Path of Exile\logs\LatestClient.txt",
     r"E:\SteamLibrary\steamapps\common\Path of Exile\logs\LatestClient.txt",
 ]
-
-
-def resolve_log_path() -> str:
-    """Ищет путь к LatestClient.txt."""
-
-    if os.path.exists("config.json"):
-        try:
-            with open("config.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            custom_path = data.get("log_path")
-
-            if custom_path and os.path.exists(custom_path):
-                return custom_path
-
-        except Exception as e:
-            print(f"[Main] Ошибка чтения config.json: {e}")
-
-    for path in DEFAULT_LOG_PATHS:
-        if os.path.exists(path):
-            return path
-
-    return DEFAULT_LOG_PATHS[0]
 
 
 class ExilingoApp:
@@ -68,11 +44,11 @@ class ExilingoApp:
         # Translation Manager
         # ---------------------------------------------------
 
+        registry = ProviderRegistry()
+        translator = registry.create(config.provider)
+
         self.translation_manager = TranslationManager(
-            translator=GoogleTranslateTranslator(
-                source_lang="en",
-                target_lang="ru",
-            )
+            translator=translator,
         )
 
         self.translation_manager.translation_finished.connect(self.on_message_ready)
@@ -83,7 +59,18 @@ class ExilingoApp:
         # Log Reader
         # ---------------------------------------------------
 
-        log_path = resolve_log_path()
+        log_path = config.log_path
+
+        if not log_path:
+            for path in DEFAULT_LOG_PATHS:
+                if os.path.exists(path):
+                    log_path = path
+                    break
+
+            if not log_path:
+                log_path = DEFAULT_LOG_PATHS[0]
+
+            config.log_path = log_path
 
         print(f"[Main] Используется путь к логу: {log_path}")
 
@@ -102,6 +89,8 @@ class ExilingoApp:
 
     def on_new_chat_message(self, msg: ChatMessage):
 
+        print("[MAIN] Получено сообщение:", msg.text)
+
         context = MessageContext.from_chat_message(msg)
 
         self.translation_manager.enqueue(context)
@@ -112,6 +101,8 @@ class ExilingoApp:
 
     def on_message_ready(self, context: MessageContext):
 
+        print("[MAIN] Отправляем в Overlay:", context.display_text)
+
         sender = context.sender
 
         if context.guild_tag:
@@ -121,7 +112,7 @@ class ExilingoApp:
             channel_prefix=context.channel_symbol,
             sender=sender,
             text=context.display_text,
-            is_translated=context.was_translated,
+            is_translated=context.translation_success,
         )
 
     # =======================================================

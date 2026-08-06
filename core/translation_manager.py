@@ -80,6 +80,8 @@ class TranslationManager(QObject):
 
     def enqueue(self, context: MessageContext):
 
+        print(f"[TranslationManager] enqueue: {context.original_text}")
+
         self._queue.put(context)
 
         self.queue_size_changed.emit(self._queue.qsize())
@@ -105,11 +107,18 @@ class TranslationManager(QObject):
             try:
                 self._process_context(context)
 
+                print(
+                    f"[TranslationManager] translated: "
+                    f"{context.original_text} -> {context.display_text}"
+                )
+
                 self.translation_finished.emit(context)
 
             except Exception as e:
                 context.translation_success = False
                 context.error = str(e)
+
+                print("[TranslationManager] ERROR:", e)
 
                 self.translation_failed.emit(
                     context,
@@ -138,13 +147,17 @@ class TranslationManager(QObject):
         context.translated_text = translated
         context.display_text = translated
 
-        # Перевод выполнен успешно
+        # Успешный перевод
         context.translation_success = True
 
         # Информация о переводчике
         context.provider = self.translator.name
-        context.source_language = self.translator.source_lang
-        context.target_language = self.translator.target_lang
+
+        if hasattr(self.translator, "source_lang"):
+            context.source_language = self.translator.source_lang
+
+        if hasattr(self.translator, "target_lang"):
+            context.target_language = self.translator.target_lang
 
     # ======================================================
     # Нормализация
@@ -157,7 +170,6 @@ class TranslationManager(QObject):
 
         text = text.strip()
 
-        # Убираем повторные пробелы
         text = " ".join(text.split())
 
         return text

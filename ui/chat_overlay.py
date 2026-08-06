@@ -2,10 +2,18 @@ import sys
 import os
 import json
 import ctypes
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, pyqtSlot, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit,
-    QLineEdit, QPushButton, QLabel, QFrame, QApplication, QSizeGrip
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTextEdit,
+    QLineEdit,
+    QPushButton,
+    QLabel,
+    QFrame,
+    QApplication,
+    QSizeGrip,
 )
 
 GWL_EXSTYLE = -20
@@ -21,6 +29,7 @@ class GlobalHotkeyListener(QObject):
         super().__init__()
         try:
             import keyboard
+
             keyboard.add_hotkey("enter", self._on_enter_pressed)
         except Exception as e:
             print(f"[HotkeyError] Не удалось зарегистрировать клавишу: {e}")
@@ -30,8 +39,10 @@ class GlobalHotkeyListener(QObject):
 
 
 class ChatOverlay(QWidget):
+    settings_requested = Signal()
+    close_requested = Signal()
+
     send_message_requested = pyqtSignal(str)
-    open_settings_requested = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -45,9 +56,9 @@ class ChatOverlay(QWidget):
 
     def init_ui(self):
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.resize(500, 250)
@@ -72,14 +83,22 @@ class ChatOverlay(QWidget):
         self.title_label = QLabel("<b>EXILINGO CHAT</b>", self)
         self.title_label.setStyleSheet("color: #AF9870; font-size: 11px;")
 
-        self.settings_btn = QPushButton("⚙", self)
-        self.settings_btn.setFixedSize(22, 22)
-        self.settings_btn.setToolTip("Настройки Exilingo")
-        self.settings_btn.clicked.connect(self.open_settings_requested.emit)
+        self.settings_button = QPushButton("⚙", self)
+        self.settings_button.setObjectName("HeaderBtn")
+        self.settings_button.setFixedSize(22, 22)
+        self.settings_button.setToolTip("Настройки Exilingo")
+        self.settings_button.clicked.connect(self.settings_requested.emit)
+
+        self.close_button = QPushButton("✕", self)
+        self.close_button.setObjectName("HeaderBtn")
+        self.close_button.setFixedSize(22, 22)
+        self.close_button.setToolTip("Закрыть оверлей")
+        self.close_button.clicked.connect(self.close_requested.emit)
 
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
-        header_layout.addWidget(self.settings_btn)
+        header_layout.addWidget(self.settings_button)
+        header_layout.addWidget(self.close_button)
 
         # ---------- История ----------
         self.chat_history = QTextEdit(self)
@@ -105,7 +124,7 @@ class ChatOverlay(QWidget):
         input_layout.addWidget(
             self.size_grip,
             0,
-            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight
+            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight,
         )
 
         self.frame_layout.addWidget(self.header_widget)
@@ -124,12 +143,7 @@ class ChatOverlay(QWidget):
 
                 geo = data.get("overlay_geometry", {})
                 if all(k in geo for k in ("x", "y", "w", "h")):
-                    self.setGeometry(
-                        geo["x"],
-                        geo["y"],
-                        geo["w"],
-                        geo["h"]
-                    )
+                    self.setGeometry(geo["x"], geo["y"], geo["w"], geo["h"])
 
                 if "font_size" in data:
                     self.font_size = data["font_size"]
@@ -151,19 +165,14 @@ class ChatOverlay(QWidget):
             "x": self.x(),
             "y": self.y(),
             "w": self.width(),
-            "h": self.height()
+            "h": self.height(),
         }
 
         config_data["font_size"] = self.font_size
 
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(
-                    config_data,
-                    f,
-                    indent=4,
-                    ensure_ascii=False
-                )
+                json.dump(config_data, f, indent=4, ensure_ascii=False)
         except Exception as e:
             print(f"[ConfigError] Не удалось сохранить конфиг: {e}")
 
@@ -191,7 +200,6 @@ class ChatOverlay(QWidget):
         self._set_click_through(not enabled)
 
         if enabled:
-
             self.header_widget.show()
             self.input_widget.show()
 
@@ -232,6 +240,11 @@ class ChatOverlay(QWidget):
                     font-weight:bold;
                 }}
 
+                QPushButton#HeaderBtn {{
+                    padding: 0px;
+                    font-size: 14px;
+                }}
+
                 QPushButton:hover {{
                     background:#3D3227;
                     color:#E8D4B3;
@@ -242,7 +255,6 @@ class ChatOverlay(QWidget):
             self.input_field.setFocus()
 
         else:
-
             self.header_widget.hide()
             self.input_widget.hide()
 
@@ -356,14 +368,15 @@ class ChatOverlay(QWidget):
 
 
 if __name__ == "__main__":
-
     app = QApplication(sys.argv)
 
     window = ChatOverlay()
 
     window.add_message("#", "DageTheEvil", "Продаю тому, кто предложит больше всех")
     window.add_message("#", "Prawny", "Почему 67 — это смешно?")
-    window.add_message("#", "SummonRagingSychoSid", "SRS на самом деле требуют нажатия кнопок")
+    window.add_message(
+        "#", "SummonRagingSychoSid", "SRS на самом деле требуют нажатия кнопок"
+    )
 
     window.show()
 
