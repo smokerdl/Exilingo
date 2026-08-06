@@ -65,9 +65,9 @@
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
         "x": 1,
-        "y": -1,
-        "w": 702,
-        "h": 379
+        "y": 1,
+        "w": 698,
+        "h": 342
     },
     "font_size": 13,
     "translation": {
