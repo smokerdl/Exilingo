@@ -1,10 +1,15 @@
 {
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
-        "x": 1,
-        "y": 11,
-        "w": 700,
-        "h": 309
+        "x": 0,
+        "y": 10,
+        "w": 702,
+        "h": 359
     },
-    "font_size": 13
+    "font_size": 13,
+    "translation": {
+        "provider": "google",
+        "source_language": "en",
+        "target_language": "ru"
+    }
 }

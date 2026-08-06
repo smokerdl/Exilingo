@@ -11,14 +11,18 @@ CHANNEL_MAP: Dict[Optional[str], str] = {
     "@": "whisper",
     "$": "trade",
     "&": "guild",
-    "": "local"  # Локальный чат области (без символа)
+    "": "local",  # Локальный чат области (без символа)
 }
 
 
 class PoELogParser:
     """Парсер логов клиента Path of Exile (LatestClient.txt)."""
 
-    # Регулярка для базовой структуры строки
+    # Ник игрока в PoE.
+    # Допускаются только английские буквы и нижнее подчеркивание.
+    PLAYER_NAME_PATTERN = re.compile(r"^[A-Za-z_]{1,23}$")
+
+    # Базовая структура строки лога
     LOG_PATTERN = re.compile(
         r"^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})\s+"
         r"(?P<ticks>\d+)\s+"
@@ -28,8 +32,8 @@ class PoELogParser:
         r"(?P<message>.*)$"
     )
 
-    # Регулярка для фильтрации сообщений чата игроков
-    CHAT_PATTERN = re.compile(
+    # Сообщение игрока
+    PLAYER_CHAT_PATTERN = re.compile(
         r"^(?P<prefix>[#%$&@])?"
         r"(?:(?P<direction>From|To|От кого|Кому)\s+)?"
         r"(?:<(?P<guild_tag>[^>]+)>\s*)?"
@@ -39,23 +43,27 @@ class PoELogParser:
 
     def parse_line(self, raw_line: str) -> Optional[LogEntry]:
         """Парсит одну строку из файла логов."""
+
         raw_line = raw_line.strip()
+
         if not raw_line:
             return None
 
         match = self.LOG_PATTERN.match(raw_line)
+
         if not match:
             return None
 
         data = match.groupdict()
 
-        # Время
-        dt = datetime.strptime(data["timestamp"], "%Y/%m/%d %H:%M:%S")
+        dt = datetime.strptime(
+            data["timestamp"],
+            "%Y/%m/%d %H:%M:%S",
+        )
 
         category = data.get("category")
         message = data["message"]
 
-        # Извлечение чата (если строка является сообщением)
         chat_data = self.parse_chat(message, category)
 
         return LogEntry(
@@ -70,33 +78,49 @@ class PoELogParser:
             chat=chat_data,
         )
 
+    def _is_valid_player_name(self, name: str) -> bool:
+        """
+        Проверяет, может ли строка быть ником игрока PoE.
+        """
+
+        return bool(self.PLAYER_NAME_PATTERN.fullmatch(name))
+
     def parse_chat(
         self,
         message: str,
         category: Optional[str] = None,
     ) -> Optional[ChatMessage]:
-        """Выделяет чат пользователя из текста сообщения."""
+        """
+        Выделяет сообщение игрока из строки лога.
+        """
 
-        # У сообщений чата пользователей не бывает категорий
-        # вида [WINDOW], [HTTP2] и т.д.
+        # Любая категория означает системную запись
         if category is not None:
             return None
 
-        # Отсекаем системные оповещения
+        # Системные сообщения клиента
         if message.startswith(":") or message.startswith("&:"):
             return None
 
-        match = self.CHAT_PATTERN.match(message)
+        match = self.PLAYER_CHAT_PATTERN.match(message)
+
         if not match:
             return None
 
         data = match.groupdict()
+
         prefix = data.get("prefix") or ""
+        sender = data["sender"].strip()
+
+        # Если это сообщение без префикса (#$%&@),
+        # считаем его сообщением области только если ник валиден.
+        if prefix == "" and not self._is_valid_player_name(sender):
+            return None
 
         return ChatMessage(
             channel=CHANNEL_MAP.get(prefix, "local"),
             channel_symbol=prefix,
-            sender=data["sender"].strip(),
+            sender=sender,
             text=data["text"].strip(),
             guild_tag=data.get("guild_tag"),
             direction=data.get("direction"),
@@ -107,16 +131,21 @@ class PoELogParser:
         filepath: str,
         encoding: str = "utf-8",
     ) -> Generator[LogEntry, None, None]:
-        """Генератор для чтения и парсинга всего файла по строкам."""
+        """Генератор чтения и парсинга файла."""
 
-        with open(filepath, "r", encoding=encoding, errors="replace") as f:
+        with open(
+            filepath,
+            "r",
+            encoding=encoding,
+            errors="replace",
+        ) as f:
             for line in f:
                 entry = self.parse_line(line)
+
                 if entry:
                     yield entry
 
 
-# Пример использования при прямом запуске скрипта
 if __name__ == "__main__":
     parser = PoELogParser()
 
@@ -129,15 +158,17 @@ if __name__ == "__main__":
         "2026/08/04 19:51:39 36263093 f9532a4e [INFO Client 22852] Closing game gracefully",
     ]
 
-    print("--- Результат парсинга точечно чата ---")
+    print("--- Результат парсинга ---")
 
     for line in sample_lines:
         entry = parser.parse_line(line)
 
         if entry and entry.chat:
-            c = entry.chat
-            tag = f"[{c.guild_tag}] " if c.guild_tag else ""
+            chat = entry.chat
+            guild = f"<{chat.guild_tag}> " if chat.guild_tag else ""
+
             print(
                 f"[{entry.timestamp.strftime('%H:%M:%S')}] "
-                f"[{c.channel.upper()}] {tag}{c.sender}: {c.text}"
+                f"[{chat.channel.upper()}] "
+                f"{guild}{chat.sender}: {chat.text}"
             )

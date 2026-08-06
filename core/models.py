@@ -3,12 +3,18 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
+# ============================================================
+# СЫРЫЕ ДАННЫЕ ИЗ ЛОГА
+# ============================================================
+
+
 @dataclass(slots=True)
 class ChatMessage:
     """
     Сообщение игрового чата, полученное из LatestClient.txt.
-    Это "сырая" модель данных, максимально близкая к тому,
-    что записывает клиент Path of Exile.
+
+    Это максимально близкое представление строки игрового чата.
+    Объект никогда не изменяется после создания.
     """
 
     channel: str
@@ -40,38 +46,106 @@ class LogEntry:
     chat: Optional[ChatMessage] = None
 
 
+# ============================================================
+# РЕЗУЛЬТАТ РАБОТЫ ПЕРЕВОДЧИКА
+# ============================================================
+
+
+@dataclass(slots=True)
+class TranslationResult:
+    """
+    Результат работы любого переводчика.
+
+    Не зависит от конкретного API.
+    Может быть получен от Google, Gemini, Groq,
+    OpenRouter, DeepL, Ollama и т.д.
+    """
+
+    message: ChatMessage
+
+    translated_text: str
+
+    source_language: Optional[str] = None
+    target_language: str = "ru"
+
+    translator: str = "Unknown"
+
+    success: bool = True
+    from_cache: bool = False
+
+    error: Optional[str] = None
+
+
+# ============================================================
+# ВНУТРЕННИЙ КОНТЕКСТ EXILINGO
+# ============================================================
+
+
 @dataclass(slots=True)
 class MessageContext:
     """
-    Внутренняя модель Exilingo.
+    Главная рабочая модель Exilingo.
 
-    Именно этот объект будет проходить через Message Pipeline.
-    Все этапы обработки работают ТОЛЬКО с ним.
+    Именно этот объект проходит через весь Pipeline.
 
-    ChatMessage никогда не изменяется.
+    ChatMessage всегда остается неизменным,
+    а MessageContext постепенно обогащается
+    новыми данными.
     """
 
-    source: ChatMessage
+    # --------------------------------------------------------
+    # Исходные данные
+    # --------------------------------------------------------
 
-    # Исходный текст
+    source: ChatMessage
     original_text: str
 
-    # После словаря
+    # --------------------------------------------------------
+    # Этапы Pipeline
+    # --------------------------------------------------------
+
     normalized_text: Optional[str] = None
 
-    # После перевода
     translated_text: Optional[str] = None
 
-    # Итоговый текст, который увидит пользователь
     display_text: Optional[str] = None
 
+    # --------------------------------------------------------
     # Информация о переводе
+    # --------------------------------------------------------
+
     provider: Optional[str] = None
     source_language: Optional[str] = None
     target_language: Optional[str] = None
 
-    # Служебная информация
+    from_cache: bool = False
+    translation_success: bool = False
+
+    error: Optional[str] = None
+
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # --------------------------------------------------------
+    # Фабрика
+    # --------------------------------------------------------
+
+    @classmethod
+    def from_chat_message(cls, message: ChatMessage) -> "MessageContext":
+        """
+        Создает MessageContext из ChatMessage.
+
+        Это основной способ создания объекта,
+        используемый Translation Pipeline.
+        """
+
+        return cls(
+            source=message,
+            original_text=message.text,
+        )
+
+    # --------------------------------------------------------
+    # Удобные свойства
+    # --------------------------------------------------------
 
     @property
     def sender(self) -> str:
@@ -92,3 +166,20 @@ class MessageContext:
     @property
     def direction(self) -> Optional[str]:
         return self.source.direction
+
+    @property
+    def original_message(self) -> ChatMessage:
+        """
+        Возвращает исходный ChatMessage.
+        """
+        return self.source
+
+    @property
+    def was_translated(self) -> bool:
+        """
+        Используется Overlay.
+
+        True — если сообщение было успешно переведено.
+        False — если отображается оригинальный текст.
+        """
+        return self.translation_success and bool(self.display_text)
