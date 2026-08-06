@@ -32,6 +32,7 @@ class ExilingoApp:
         # ---------------------------------------------------
 
         self.overlay = ChatOverlay()
+        self.overlay.close_requested.connect(self.quit_app)
 
         # ---------------------------------------------------
         # Hotkey
@@ -119,6 +120,11 @@ class ExilingoApp:
 
     def on_log_status(self, status: str):
         print(f"[LogReader] {status}")
+
+    # =======================================================
+
+    def quit_app(self):
+        self.app.quit()
 
     # =======================================================
 

@@ -1,15 +1,70 @@
-# Виртуальное окружение
+```gitignore
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Virtual environments
 venv/
 .venv/
 env/
 
-# Кэш Python
-__pycache__/
-*.pyc
+# Logs
+*.log
 
-# Переменные окружения и секреты
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Environment files
 .env
+.env.local
+*.env.*
 
-# Настройки редакторов
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# IDE files
 .vscode/
 .idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
