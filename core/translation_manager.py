@@ -198,7 +198,9 @@ class TranslationManager(QObject):
 
         detected_language = self._detect_script_language(normalized)
 
-        context.source_language = detected_language or expected_source_language
+        context.source_language = (
+            detected_language or expected_source_language
+        )
         context.target_language = expected_target_language
 
         # Если сообщение уже на целевом языке — не отправляем
@@ -493,8 +495,8 @@ if __name__ == "__main__":
 
     manager = TranslationManager(
         translator=GoogleTranslateTranslator(
-            source_lang="en",
-            target_lang="ru",
+            source_language="en",
+            target_language="ru",
         )
     )
 
