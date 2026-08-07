@@ -1,16 +1,18 @@
 import sys
 import os
 
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication
 
 from core.log_reader import LogReaderThread
 from core.log_parser import ChatMessage
 from core.models import MessageContext
 from core.translation_manager import TranslationManager
+from core.translation_router import TranslationRouter
 from core.config_manager import config
 from core.provider_registry import ProviderRegistry
 
 from ui.chat_overlay import ChatOverlay, GlobalHotkeyListener
+from ui.settings_dialog import SettingsDialog
 
 
 # Стандартные пути к логам PoE (Standalone и Steam)
@@ -33,29 +35,46 @@ class ExilingoApp:
 
         self.overlay = ChatOverlay()
 
-        # Кнопки верхней панели
-        self.overlay.close_requested.connect(self.close_application)
-        self.overlay.settings_requested.connect(self.open_settings)
+        self.overlay.close_requested.connect(
+            self.close_application
+        )
+
+        self.overlay.settings_requested.connect(
+            self.open_settings
+        )
 
         # ---------------------------------------------------
         # Hotkey
         # ---------------------------------------------------
 
         self.hotkey_listener = GlobalHotkeyListener()
-        self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
+        self.hotkey_listener.toggle_requested.connect(
+            self.overlay.toggle_mode
+        )
+
+        # ---------------------------------------------------
+        # Provider Registry + Router
+        # ---------------------------------------------------
+
+        self.provider_registry = ProviderRegistry()
+        self.translation_router = TranslationRouter()
 
         # ---------------------------------------------------
         # Translation Manager
         # ---------------------------------------------------
 
-        registry = ProviderRegistry()
-        translator = registry.create(config.provider)
-
         self.translation_manager = TranslationManager(
-            translator=translator,
+            registry=self.provider_registry,
+            router=self.translation_router,
         )
 
-        self.translation_manager.translation_finished.connect(self.on_message_ready)
+        self.translation_manager.translation_finished.connect(
+            self.on_message_ready
+        )
+
+        self.translation_manager.translation_failed.connect(
+            self.on_translation_failed
+        )
 
         self.translation_manager.start()
 
@@ -76,52 +95,62 @@ class ExilingoApp:
 
             config.log_path = log_path
 
-        print(f"[Main] Используется путь к логу: {log_path}")
+        print(
+            f"[Main] Используется путь к логу: {log_path}"
+        )
 
         self.log_reader = LogReaderThread(
             log_filepath=log_path,
             read_from_end=True,
         )
 
-        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
+        self.log_reader.new_chat_message.connect(
+            self.on_new_chat_message
+        )
 
-        self.log_reader.status_changed.connect(self.on_log_status)
+        self.log_reader.status_changed.connect(
+            self.on_log_status
+        )
 
     # =======================================================
     # Верхняя панель Overlay
     # =======================================================
 
     def close_application(self):
-        """
-        Завершает работу программы.
-        """
+        """Завершает работу программы."""
 
         print("[MAIN] Завершение работы...")
-
         self.app.quit()
 
     # -------------------------------------------------------
 
     def open_settings(self):
-        """
-        Пока окно настроек не реализовано.
-        """
+        """Открывает полноценное окно настроек Exilingo."""
 
         print("[MAIN] Открытие окна настроек")
 
-        QMessageBox.information(
+        accepted = SettingsDialog.open_settings(
             self.overlay,
-            "Настройки",
-            "Окно настроек пока находится в разработке.",
         )
+
+        if accepted:
+            print("[MAIN] Настройки сохранены")
+        else:
+            print("[MAIN] Настройки отменены")
 
     # =======================================================
     # Log Reader
     # =======================================================
 
-    def on_new_chat_message(self, msg: ChatMessage):
+    def on_new_chat_message(
+        self,
+        msg: ChatMessage,
+    ):
 
-        print("[MAIN] Получено сообщение:", msg.text)
+        print(
+            "[MAIN] Получено сообщение:",
+            msg.text,
+        )
 
         context = MessageContext.from_chat_message(msg)
 
@@ -131,9 +160,15 @@ class ExilingoApp:
     # Translation Pipeline
     # =======================================================
 
-    def on_message_ready(self, context: MessageContext):
+    def on_message_ready(
+        self,
+        context: MessageContext,
+    ):
 
-        print("[MAIN] Отправляем в Overlay:", context.display_text)
+        print(
+            "[MAIN] Отправляем в Overlay:",
+            context.display_text,
+        )
 
         sender = context.sender
 
@@ -147,17 +182,53 @@ class ExilingoApp:
             is_translated=context.translation_success,
         )
 
+    # -------------------------------------------------------
+
+    def on_translation_failed(
+        self,
+        context: MessageContext,
+        error: str,
+    ):
+        """
+        Если вся очередь провайдеров закончилась ошибкой,
+        показываем пользователю исходный текст, а не теряем
+        сообщение из Overlay.
+        """
+
+        print(
+            "[MAIN] Перевод не выполнен:",
+            context.original_text,
+            "|",
+            error,
+        )
+
+        sender = context.sender
+
+        if context.guild_tag:
+            sender = f"<{context.guild_tag}> {sender}"
+
+        self.overlay.add_message(
+            channel_prefix=context.channel_symbol,
+            sender=sender,
+            text=context.original_text,
+            is_translated=False,
+        )
+
     # =======================================================
 
-    def on_log_status(self, status: str):
-        print(f"[LogReader] {status}")
+    def on_log_status(
+        self,
+        status: str,
+    ):
+        print(
+            f"[LogReader] {status}"
+        )
 
     # =======================================================
 
     def run(self):
 
         self.log_reader.start()
-
         self.overlay.show()
 
         self.overlay.add_message(
