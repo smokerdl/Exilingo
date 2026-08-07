@@ -11,88 +11,198 @@ except ImportError:
 from providers.base import BaseTranslator
 
 from .models import MessageContext
+from .provider_registry import ProviderRegistry
+from .translation_router import TranslationRouter
 
 
 class TranslationManager(QObject):
-    """Центральный диспетчер переводов."""
+    """
+    Центральный диспетчер переводов.
+
+    Pipeline:
+
+        MessageContext
+            ↓
+        TranslationRouter
+            ↓
+        очередь провайдеров
+            ↓
+        ProviderRegistry
+            ↓
+        первый успешно отработавший провайдер
+            ↓
+        Overlay
+
+    Если первый провайдер маршрута недоступен или завершился
+    ошибкой, менеджер пробует следующий провайдер.
+    """
 
     translation_finished = Signal(MessageContext)
     translation_failed = Signal(MessageContext, str)
+
     queue_size_changed = Signal(int)
+
     worker_started = Signal()
     worker_stopped = Signal()
 
     # Сообщения с меньшим количеством букв не классифицируем.
     MIN_LANGUAGE_LETTERS = 3
 
-    def __init__(self, translator: BaseTranslator):
+    def __init__(
+        self,
+        translator: Optional[BaseTranslator] = None,
+        registry: Optional[ProviderRegistry] = None,
+        router: Optional[TranslationRouter] = None,
+    ):
         super().__init__()
+
+        # --------------------------------------------------
+        # Новый routing-based pipeline
+        # --------------------------------------------------
+
+        self.registry = registry or ProviderRegistry()
+        self.router = router or TranslationRouter()
+
+        # --------------------------------------------------
+        # Совместимость со старым кодом
+        # --------------------------------------------------
+        #
+        # Если передан translator, он используется только
+        # как fallback старого API. Основной main.py теперь
+        # работает через registry + router.
+        #
         self.translator = translator
+
         self._queue: queue.Queue[Optional[MessageContext]] = queue.Queue()
+
         self._running = False
         self._thread: Optional[threading.Thread] = None
+
+    # ======================================================
+    # Управление жизненным циклом
+    # ======================================================
 
     def start(self):
         if self._running:
             return
+
         self._running = True
+
         self._thread = threading.Thread(
             target=self._worker_loop,
             daemon=True,
             name="TranslationWorker",
         )
+
         self._thread.start()
         self.worker_started.emit()
 
     def stop(self):
         if not self._running:
             return
+
         self._running = False
         self._queue.put(None)
+
         if self._thread is not None:
             self._thread.join(timeout=2)
+
         self.worker_stopped.emit()
 
+    # ======================================================
+    # Очередь
+    # ======================================================
+
     def enqueue(self, context: MessageContext):
-        print(f"[TranslationManager] enqueue: {context.original_text}")
+        print(
+            f"[TranslationManager] enqueue: "
+            f"{context.original_text}"
+        )
+
         self._queue.put(context)
         self.queue_size_changed.emit(self._queue.qsize())
 
     def pending_count(self) -> int:
         return self._queue.qsize()
 
+    # ======================================================
+    # Worker
+    # ======================================================
+
     def _worker_loop(self):
         while self._running:
             context = self._queue.get()
+
             if context is None:
                 break
+
             self.queue_size_changed.emit(self._queue.qsize())
+
             try:
                 self._process_context(context)
+
                 print(
                     f"[TranslationManager] translated: "
                     f"{context.original_text} -> {context.display_text}"
                 )
+
                 self.translation_finished.emit(context)
+
             except Exception as e:
                 context.translation_success = False
                 context.error = str(e)
-                print("[TranslationManager] ERROR:", e)
-                self.translation_failed.emit(context, str(e))
 
-    def _process_context(self, context: MessageContext):
+                print(
+                    "[TranslationManager] ERROR:",
+                    e,
+                )
+
+                self.translation_failed.emit(
+                    context,
+                    str(e),
+                )
+
+    # ======================================================
+    # Pipeline
+    # ======================================================
+
+    def _process_context(
+        self,
+        context: MessageContext,
+    ):
+        # --------------------------------------------------
+        # Нормализация
+        # --------------------------------------------------
+
         text = context.original_text.strip()
         normalized = self._normalize(text)
         context.normalized_text = normalized
 
-        expected_source_language = self._expected_source_language(context)
-        detected_language = self._detect_script_language(normalized)
+        # --------------------------------------------------
+        # Routing
+        # --------------------------------------------------
 
-        context.source_language = detected_language
-        context.target_language = (
-            "en" if expected_source_language == "ru" else "ru"
+        decision = self.router.resolve(context)
+
+        expected_source_language = decision.source_language or (
+            "ru" if decision.direction == "outgoing" else "en"
         )
 
+        expected_target_language = decision.target_language or (
+            "en" if decision.direction == "outgoing" else "ru"
+        )
+
+        # --------------------------------------------------
+        # Локальная проверка языка
+        # --------------------------------------------------
+
+        detected_language = self._detect_script_language(normalized)
+
+        context.source_language = detected_language or expected_source_language
+        context.target_language = expected_target_language
+
+        # Если сообщение уже на целевом языке — не отправляем
+        # его ни одному внешнему провайдеру.
         if self._should_skip_translation(
             detected_language,
             expected_source_language,
@@ -102,6 +212,7 @@ class TranslationManager(QObject):
             context.translation_success = False
             context.provider = None
             context.from_cache = False
+            context.error = None
 
             print(
                 "[TranslationManager] skip translation: "
@@ -109,38 +220,177 @@ class TranslationManager(QObject):
                 f"(detected={detected_language}, "
                 f"expected={expected_source_language})"
             )
+
             return
 
-        translated = self.translator.translate(normalized)
-        context.translated_text = translated
-        context.display_text = translated
-        context.translation_success = True
-        context.provider = self.translator.name
+        # --------------------------------------------------
+        # Очередь провайдеров
+        # --------------------------------------------------
 
-        if hasattr(self.translator, "source_lang"):
-            context.source_language = self.translator.source_lang
-        if hasattr(self.translator, "target_lang"):
-            context.target_language = self.translator.target_lang
+        errors = []
 
-    def _expected_source_language(self, context: MessageContext) -> str:
-        """Определяет ожидаемый язык исходного текста."""
-        direction = (context.direction or "").strip().lower()
-        if direction in ("to", "кому"):
-            return "ru"
-        return "en"
+        for provider_id in decision.providers:
+            try:
+                if not self.registry.is_available(provider_id):
+                    errors.append(
+                        f"{provider_id}: недоступен или выключен"
+                    )
+                    continue
 
-    def _detect_script_language(self, text: str) -> Optional[str]:
+                translator = self.registry.create(
+                    provider_id,
+                    source_language=expected_source_language,
+                    target_language=expected_target_language,
+                )
+
+                print(
+                    "[TranslationManager] trying provider:",
+                    provider_id,
+                    f"({expected_source_language}->{expected_target_language})",
+                )
+
+                translated = translator.translate(
+                    normalized,
+                )
+
+                if translated is None:
+                    raise RuntimeError("Провайдер вернул None")
+
+                translated = str(translated).strip()
+
+                if not translated:
+                    raise RuntimeError("Провайдер вернул пустой перевод")
+
+                # ------------------------------------------
+                # Успех
+                # ------------------------------------------
+
+                context.translated_text = translated
+                context.display_text = translated
+                context.translation_success = True
+                context.provider = translator.name
+                context.from_cache = False
+                context.error = None
+
+                # Фактическое направление провайдера.
+                context.source_language = getattr(
+                    translator,
+                    "source_language",
+                    getattr(
+                        translator,
+                        "source_lang",
+                        expected_source_language,
+                    ),
+                )
+
+                context.target_language = getattr(
+                    translator,
+                    "target_language",
+                    getattr(
+                        translator,
+                        "target_lang",
+                        expected_target_language,
+                    ),
+                )
+
+                return
+
+            except Exception as e:
+                error_text = str(e)
+
+                errors.append(
+                    f"{provider_id}: {error_text}"
+                )
+
+                print(
+                    f"[TranslationManager] provider '{provider_id}' failed: "
+                    f"{error_text}"
+                )
+
+        # --------------------------------------------------
+        # Старый translator как последний fallback
+        # --------------------------------------------------
+
+        if self.translator is not None:
+            try:
+                print(
+                    "[TranslationManager] trying legacy translator fallback"
+                )
+
+                translated = self.translator.translate(normalized)
+
+                if translated is None:
+                    raise RuntimeError("Провайдер вернул None")
+
+                translated = str(translated).strip()
+
+                if not translated:
+                    raise RuntimeError("Провайдер вернул пустой перевод")
+
+                context.translated_text = translated
+                context.display_text = translated
+                context.translation_success = True
+                context.provider = self.translator.name
+                context.from_cache = False
+                context.error = None
+
+                context.source_language = getattr(
+                    self.translator,
+                    "source_language",
+                    getattr(
+                        self.translator,
+                        "source_lang",
+                        expected_source_language,
+                    ),
+                )
+
+                context.target_language = getattr(
+                    self.translator,
+                    "target_language",
+                    getattr(
+                        self.translator,
+                        "target_lang",
+                        expected_target_language,
+                    ),
+                )
+
+                return
+
+            except Exception as e:
+                errors.append(
+                    f"legacy: {e}"
+                )
+
+        # --------------------------------------------------
+        # Все провайдеры закончились
+        # --------------------------------------------------
+
+        raise RuntimeError(
+            "Все провайдеры маршрута завершились ошибкой: "
+            + "; ".join(errors)
+        )
+
+    # ======================================================
+    # Язык
+    # ======================================================
+
+    def _detect_script_language(
+        self,
+        text: str,
+    ) -> Optional[str]:
         """
-        Локально определяет язык только по алфавиту.
+        Локально определяет язык по алфавиту.
 
-        Возвращает:
-          ru   — есть кириллица и нет латиницы;
-          en   — есть латиница и нет кириллицы;
-          None — смешанный текст или слишком мало букв.
+        ru:
+            есть кириллица и нет латиницы.
 
-        Ключевой момент: процентное соотношение букв больше
-        не используется. Даже одна латинская буква в кириллическом
-        сообщении делает его смешанным и отправляет его на перевод.
+        en:
+            есть латиница и нет кириллицы.
+
+        None:
+            смешанный текст или слишком мало букв.
+
+        Смешанные сообщения всегда отправляются на перевод.
         """
         cyrillic_count = 0
         latin_count = 0
@@ -156,7 +406,6 @@ class TranslationManager(QObject):
         if total_letters < self.MIN_LANGUAGE_LETTERS:
             return None
 
-        # Смешанный текст всегда переводим.
         if cyrillic_count > 0 and latin_count > 0:
             return None
 
@@ -176,7 +425,10 @@ class TranslationManager(QObject):
     @staticmethod
     def _is_latin(char: str) -> bool:
         code = ord(char)
-        return (0x0041 <= code <= 0x005A) or (0x0061 <= code <= 0x007A)
+        return (
+            (0x0041 <= code <= 0x005A)
+            or (0x0061 <= code <= 0x007A)
+        )
 
     def _should_skip_translation(
         self,
@@ -184,16 +436,18 @@ class TranslationManager(QObject):
         expected_source_language: str,
     ) -> bool:
         """
-        Пропускаем перевод только для полностью одноязычного текста
-        на языке, который является целевым для данного направления.
+        Пропускаем только сообщение, которое полностью написано
+        на целевом языке текущего направления.
 
-        Incoming (ожидаем EN): полностью кириллическое сообщение
-        уже русское -> пропускаем.
+        Incoming:
+            expected EN -> RU
+            полностью RU -> skip
 
-        Outgoing (ожидаем RU): полностью латинское сообщение
-        уже английское -> пропускаем.
+        Outgoing:
+            expected RU -> EN
+            полностью EN -> skip
 
-        Смешанные сообщения никогда не пропускаются.
+        Смешанный текст никогда не пропускается.
         """
         if detected_language is None:
             return False
@@ -206,21 +460,42 @@ class TranslationManager(QObject):
 
         return False
 
-    def _normalize(self, text: str) -> str:
+    # ======================================================
+    # Нормализация
+    # ======================================================
+
+    def _normalize(
+        self,
+        text: str,
+    ) -> str:
         text = text.strip()
         text = " ".join(text.split())
         return text
 
-    def set_translator(self, translator: BaseTranslator):
+    # ======================================================
+    # Смена legacy-переводчика
+    # ======================================================
+
+    def set_translator(
+        self,
+        translator: BaseTranslator,
+    ):
         self.translator = translator
 
 
+# ==========================================================
+# Тестирование
+# ==========================================================
+
 if __name__ == "__main__":
     from providers.google_translate import GoogleTranslateTranslator
-    from .models import ChatMessage, MessageContext
+    from .models import ChatMessage
 
     manager = TranslationManager(
-        GoogleTranslateTranslator(source_lang="en", target_lang="ru")
+        translator=GoogleTranslateTranslator(
+            source_lang="en",
+            target_lang="ru",
+        )
     )
 
     def finished(context: MessageContext):
@@ -255,7 +530,9 @@ if __name__ == "__main__":
             text=text,
             direction=direction,
         )
-        manager.enqueue(MessageContext.from_chat_message(msg))
+        manager.enqueue(
+            MessageContext.from_chat_message(msg)
+        )
 
     while manager.pending_count():
         time.sleep(0.1)
