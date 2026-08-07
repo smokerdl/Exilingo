@@ -1,7 +1,7 @@
 import sys
 import os
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from core.log_reader import LogReaderThread
 from core.log_parser import ChatMessage
@@ -32,6 +32,10 @@ class ExilingoApp:
         # ---------------------------------------------------
 
         self.overlay = ChatOverlay()
+
+        # Кнопки верхней панели
+        self.overlay.close_requested.connect(self.close_application)
+        self.overlay.settings_requested.connect(self.open_settings)
 
         # ---------------------------------------------------
         # Hotkey
@@ -82,6 +86,34 @@ class ExilingoApp:
         self.log_reader.new_chat_message.connect(self.on_new_chat_message)
 
         self.log_reader.status_changed.connect(self.on_log_status)
+
+    # =======================================================
+    # Верхняя панель Overlay
+    # =======================================================
+
+    def close_application(self):
+        """
+        Завершает работу программы.
+        """
+
+        print("[MAIN] Завершение работы...")
+
+        self.app.quit()
+
+    # -------------------------------------------------------
+
+    def open_settings(self):
+        """
+        Пока окно настроек не реализовано.
+        """
+
+        print("[MAIN] Открытие окна настроек")
+
+        QMessageBox.information(
+            self.overlay,
+            "Настройки",
+            "Окно настроек пока находится в разработке.",
+        )
 
     # =======================================================
     # Log Reader
