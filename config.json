@@ -4,12 +4,13 @@
     },
     "overlay": {
         "geometry": {
-            "x": 0,
-            "y": 10,
-            "w": 700,
-            "h": 309
+            "x": 1,
+            "y": 1,
+            "w": 701,
+            "h": 371
         },
-        "font_size": 13
+        "font_size": 13,
+        "outgoing_channel": "local"
     },
     "providers": {
         "google": {
@@ -68,17 +69,14 @@
         ],
         "whisper": [
             "google"
-        ],
-        "outgoing": [
-            "google"
         ]
     },
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
         "x": 1,
         "y": 1,
-        "w": 698,
-        "h": 342
+        "w": 701,
+        "h": 371
     },
     "font_size": 13,
     "translation": {

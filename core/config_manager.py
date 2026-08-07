@@ -43,11 +43,11 @@ DEFAULT_CONFIG = {
             "enabled": True,
             # Языки для ВХОДЯЩИХ сообщений.
             #
-            # Исходящие автоматически используют
-            # обратное направление:
+            # incoming:
+            #     en -> ru
             #
-            # incoming: en -> ru
-            # outgoing: ru -> en
+            # outgoing автоматически:
+            #     ru -> en
             #
             "source_language": "en",
             "target_language": "ru",
@@ -63,7 +63,6 @@ DEFAULT_CONFIG = {
                 "You are a translator of the Path of Exile game chat. "
                 "Translate naturally without explanations."
             ),
-            # Языки входящих сообщений.
             "source_language": "en",
             "target_language": "ru",
         },
@@ -105,7 +104,7 @@ DEFAULT_CONFIG = {
     # Маршрутизация
     # ------------------------------------------------------
     #
-    # В каждом канале находится ОЧЕРЕДЬ провайдеров.
+    # Каждый канал содержит ОЧЕРЕДЬ провайдеров.
     #
     # Например:
     #
@@ -115,10 +114,16 @@ DEFAULT_CONFIG = {
     #     "google",
     # ]
     #
-    # TranslationRouter в будущем будет пробовать
-    # провайдеров именно в указанном порядке.
+    # TranslationRouter пробует провайдеров
+    # именно в указанном порядке.
     #
-    # Пока доступен только Google Translate.
+    # Outgoing здесь намеренно НЕТ.
+    #
+    # Исходящие сообщения используют тот же маршрут,
+    # что и Whisper.
+    #
+    # Это позволяет не дублировать одну и ту же
+    # очередь в настройках.
     # ------------------------------------------------------
     "routing": {
         "global": [
@@ -139,14 +144,6 @@ DEFAULT_CONFIG = {
         "whisper": [
             "google",
         ],
-        # Outgoing использует тот же маршрут,
-        # что и Whisper.
-        #
-        # Отдельная настройка в GUI для него
-        # не нужна.
-        "outgoing": [
-            "google",
-        ],
     },
 }
 
@@ -165,6 +162,7 @@ class ConfigManager:
     - загрузку config.json;
     - сохранение config.json;
     - значения по умолчанию;
+    - миграцию старой конфигурации;
     - доступ к общим настройкам;
     - доступ к настройкам провайдеров;
     - доступ к маршрутам переводчиков;
@@ -178,7 +176,6 @@ class ConfigManager:
         self,
         filename: str = CONFIG_FILE,
     ):
-
         self.filename = Path(filename)
 
         # Начинаем с полной копии конфигурации
@@ -198,14 +195,12 @@ class ConfigManager:
         Если файл существует, его значения объединяются
         со значениями DEFAULT_CONFIG.
 
-        Это позволяет добавлять новые настройки в будущих
-        версиях программы без необходимости вручную
-        переписывать старый config.json.
+        После загрузки выполняется миграция старых
+        параметров конфигурации.
         """
 
         if not self.filename.exists():
             self.save()
-
             return
 
         try:
@@ -217,22 +212,440 @@ class ConfigManager:
 
             if not isinstance(loaded, dict):
                 print("[Config] Ошибка: config.json должен содержать JSON-объект.")
-
                 return
 
+            # Сначала объединяем старую конфигурацию
+            # с актуальными значениями по умолчанию.
             self._merge_dict(
                 self.data,
                 loaded,
             )
 
-            # Сохраняем после объединения.
-            #
-            # Это добавляет в старый config.json
-            # новые параметры из DEFAULT_CONFIG.
+            # Затем переносим старые параметры
+            # в актуальную структуру.
+            self._migrate_legacy_config(
+                loaded,
+            )
+
+            # Нормализуем структуру.
+            self._normalize_config()
+
+            # Сохраняем уже актуальную конфигурацию.
             self.save()
 
         except Exception as e:
             print(f"[Config] Ошибка загрузки: {e}")
+
+    # ======================================================
+    # Миграция старой конфигурации
+    # ======================================================
+
+    def _migrate_legacy_config(
+        self,
+        loaded: dict,
+    ):
+        """
+        Переносит настройки из старых версий Exilingo.
+
+        Ранее часть настроек могла находиться непосредственно
+        в корне config.json:
+
+            "log_path"
+            "overlay_geometry"
+            "font_size"
+            "translation"
+
+        Теперь они находятся в:
+
+            general.log_path
+            overlay.geometry
+            overlay.font_size
+            providers / routing
+
+        При наличии новой структуры она имеет приоритет.
+        """
+
+        # --------------------------------------------------
+        # Старый log_path
+        # --------------------------------------------------
+
+        if not self.get("general", "log_path") and loaded.get("log_path"):
+            self.data["general"]["log_path"] = loaded["log_path"]
+
+        # --------------------------------------------------
+        # Старый overlay_geometry
+        # --------------------------------------------------
+
+        legacy_geometry = loaded.get(
+            "overlay_geometry",
+        )
+
+        current_geometry = self.data.get(
+            "overlay",
+            {},
+        ).get(
+            "geometry",
+            {},
+        )
+
+        if isinstance(legacy_geometry, dict):
+            default_geometry = DEFAULT_CONFIG["overlay"]["geometry"]
+
+            # Переносим только отсутствующие значения.
+            for key in (
+                "x",
+                "y",
+                "w",
+                "h",
+            ):
+                if (
+                    current_geometry.get(key) == default_geometry.get(key)
+                    and key in legacy_geometry
+                ):
+                    current_geometry[key] = legacy_geometry[key]
+
+        # --------------------------------------------------
+        # Старый font_size
+        # --------------------------------------------------
+
+        if "font_size" in loaded:
+            current_font_size = self.data["overlay"].get(
+                "font_size",
+                DEFAULT_CONFIG["overlay"]["font_size"],
+            )
+
+            if current_font_size == DEFAULT_CONFIG["overlay"]["font_size"]:
+                self.data["overlay"]["font_size"] = loaded["font_size"]
+
+        # --------------------------------------------------
+        # Старый translation
+        # --------------------------------------------------
+        #
+        # Старые версии могли хранить:
+        #
+        # "translation": {
+        #     "provider": "google",
+        #     "source_language": "en",
+        #     "target_language": "ru"
+        # }
+        #
+        # Переносим эти данные в Google, если актуальные
+        # значения ещё не были настроены.
+        # --------------------------------------------------
+
+        legacy_translation = loaded.get(
+            "translation",
+        )
+
+        if isinstance(legacy_translation, dict):
+            google = self.data["providers"]["google"]
+
+            if "provider" in legacy_translation and legacy_translation["provider"]:
+                provider_id = str(legacy_translation["provider"])
+
+                if provider_id in self.data["providers"]:
+                    # Старый provider использовался как
+                    # единственный активный переводчик.
+                    #
+                    # Добавляем его в Global/Whisper только
+                    # если текущий маршрут ещё стандартный.
+                    for channel in (
+                        "global",
+                        "local",
+                        "trade",
+                        "party",
+                        "guild",
+                        "whisper",
+                    ):
+                        route = self.data["routing"].get(
+                            channel,
+                            [],
+                        )
+
+                        if route == ["google"]:
+                            self.data["routing"][channel] = [provider_id]
+
+            if (
+                "source_language" in legacy_translation
+                and legacy_translation["source_language"]
+            ):
+                google["source_language"] = str(legacy_translation["source_language"])
+
+            if (
+                "target_language" in legacy_translation
+                and legacy_translation["target_language"]
+            ):
+                google["target_language"] = str(legacy_translation["target_language"])
+
+    # ======================================================
+    # Нормализация конфигурации
+    # ======================================================
+
+    def _normalize_config(self):
+        """
+        Проверяет и нормализует структуру конфигурации.
+
+        Здесь мы не меняем пользовательские значения
+        без необходимости, а только защищаем приложение
+        от поврежденных или устаревших данных.
+        """
+
+        # --------------------------------------------------
+        # General
+        # --------------------------------------------------
+
+        general = self.data.setdefault(
+            "general",
+            {},
+        )
+
+        if not isinstance(
+            general.get("log_path"),
+            str,
+        ):
+            general["log_path"] = ""
+
+        # --------------------------------------------------
+        # Overlay
+        # --------------------------------------------------
+
+        overlay = self.data.setdefault(
+            "overlay",
+            {},
+        )
+
+        geometry = overlay.setdefault(
+            "geometry",
+            deepcopy(DEFAULT_CONFIG["overlay"]["geometry"]),
+        )
+
+        if not isinstance(geometry, dict):
+            geometry = deepcopy(DEFAULT_CONFIG["overlay"]["geometry"])
+
+        for key in (
+            "x",
+            "y",
+            "w",
+            "h",
+        ):
+            default_value = DEFAULT_CONFIG["overlay"]["geometry"][key]
+
+            value = geometry.get(
+                key,
+                default_value,
+            )
+
+            try:
+                geometry[key] = int(value)
+            except (TypeError, ValueError):
+                geometry[key] = default_value
+
+        overlay["geometry"] = geometry
+
+        try:
+            overlay["font_size"] = int(
+                overlay.get(
+                    "font_size",
+                    DEFAULT_CONFIG["overlay"]["font_size"],
+                )
+            )
+        except (TypeError, ValueError):
+            overlay["font_size"] = DEFAULT_CONFIG["overlay"]["font_size"]
+
+        # --------------------------------------------------
+        # Providers
+        # --------------------------------------------------
+
+        providers = self.data.setdefault(
+            "providers",
+            {},
+        )
+
+        for provider_id, defaults in DEFAULT_CONFIG["providers"].items():
+            provider = providers.setdefault(
+                provider_id,
+                deepcopy(defaults),
+            )
+
+            if not isinstance(provider, dict):
+                provider = deepcopy(defaults)
+                providers[provider_id] = provider
+
+            provider["enabled"] = bool(
+                provider.get(
+                    "enabled",
+                    defaults.get("enabled", False),
+                )
+            )
+
+            # Все провайдеры используют единое
+            # представление направления.
+            source_language = provider.get(
+                "source_language",
+                defaults.get(
+                    "source_language",
+                    "en",
+                ),
+            )
+
+            target_language = provider.get(
+                "target_language",
+                defaults.get(
+                    "target_language",
+                    "ru",
+                ),
+            )
+
+            provider["source_language"] = str(source_language or "en").strip() or "en"
+
+            provider["target_language"] = str(target_language or "ru").strip() or "ru"
+
+            if provider_id == "google":
+                continue
+
+            if "model" in defaults:
+                provider["model"] = str(
+                    provider.get(
+                        "model",
+                        defaults.get("model", ""),
+                    )
+                    or ""
+                )
+
+            if "system_prompt" in defaults:
+                provider["system_prompt"] = str(
+                    provider.get(
+                        "system_prompt",
+                        defaults.get("system_prompt", ""),
+                    )
+                    or ""
+                )
+
+            if "api_key" in defaults:
+                provider["api_key"] = str(
+                    provider.get(
+                        "api_key",
+                        "",
+                    )
+                    or ""
+                )
+
+            if provider_id == "ollama":
+                provider["host"] = str(
+                    provider.get(
+                        "host",
+                        defaults.get(
+                            "host",
+                            "http://127.0.0.1:11434",
+                        ),
+                    )
+                    or ""
+                ).strip()
+
+        # --------------------------------------------------
+        # Routing
+        # --------------------------------------------------
+
+        routing = self.data.setdefault(
+            "routing",
+            {},
+        )
+
+        for channel, default_route in DEFAULT_CONFIG["routing"].items():
+            route = routing.get(
+                channel,
+                deepcopy(default_route),
+            )
+
+            if not isinstance(route, list):
+                route = deepcopy(default_route)
+
+            routing[channel] = self._normalize_route(
+                route,
+            )
+
+        # --------------------------------------------------
+        # Legacy outgoing route
+        # --------------------------------------------------
+        #
+        # Outgoing больше не является самостоятельной
+        # настройкой.
+        #
+        # Если старый config.json содержит outgoing,
+        # его маршрут переносим в whisper, если whisper
+        # ещё не был явно изменён.
+        # --------------------------------------------------
+
+        legacy_outgoing = routing.get(
+            "outgoing",
+        )
+
+        if isinstance(legacy_outgoing, list):
+            whisper_route = routing.get(
+                "whisper",
+                [],
+            )
+
+            if (
+                whisper_route == DEFAULT_CONFIG["routing"]["whisper"]
+                and legacy_outgoing
+            ):
+                routing["whisper"] = self._normalize_route(
+                    legacy_outgoing,
+                )
+
+            routing.pop(
+                "outgoing",
+                None,
+            )
+
+    # ======================================================
+    # Нормализация маршрута
+    # ======================================================
+
+    def _normalize_route(
+        self,
+        providers: list,
+    ) -> list[str]:
+        """
+        Удаляет поврежденные значения и дубликаты
+        из очереди провайдеров.
+        """
+
+        if not isinstance(
+            providers,
+            list,
+        ):
+            return ["google"]
+
+        known_providers = set(DEFAULT_CONFIG["providers"].keys())
+
+        result = []
+
+        for provider_id in providers:
+            if not isinstance(
+                provider_id,
+                str,
+            ):
+                continue
+
+            provider_id = provider_id.strip()
+
+            if not provider_id:
+                continue
+
+            if provider_id not in known_providers:
+                continue
+
+            if provider_id in result:
+                continue
+
+            result.append(provider_id)
+
+        if not result:
+            return ["google"]
+
+        return result
 
     # ======================================================
     # Сохранение
@@ -280,8 +693,14 @@ class ConfigManager:
         for key, value in loaded.items():
             if (
                 key in default
-                and isinstance(default[key], dict)
-                and isinstance(value, dict)
+                and isinstance(
+                    default[key],
+                    dict,
+                )
+                and isinstance(
+                    value,
+                    dict,
+                )
             ):
                 self._merge_dict(
                     default[key],
@@ -315,10 +734,15 @@ class ConfigManager:
         obj: Any = self.data
 
         for key in keys:
-            if not isinstance(obj, dict):
+            if not isinstance(
+                obj,
+                dict,
+            ):
                 return default
 
-            obj = obj.get(key)
+            obj = obj.get(
+                key,
+            )
 
             if obj is None:
                 return default
@@ -337,15 +761,6 @@ class ConfigManager:
         """
         Устанавливает значение по цепочке ключей
         и сразу сохраняет конфигурацию.
-
-        Например:
-
-            config.set(
-                "providers",
-                "gemini",
-                "api_key",
-                value="...",
-            )
         """
 
         if not keys:
@@ -384,7 +799,6 @@ class ConfigManager:
         self,
         value: str,
     ):
-
         self.set(
             "general",
             "log_path",
@@ -419,7 +833,6 @@ class ConfigManager:
         self,
         value,
     ):
-
         self.set(
             "overlay",
             "geometry",
@@ -445,7 +858,6 @@ class ConfigManager:
         self,
         value: int,
     ):
-
         self.set(
             "overlay",
             "font_size",
@@ -462,12 +874,11 @@ class ConfigManager:
         Возвращает первого провайдера из маршрута Global.
 
         Это временная совместимость со старым кодом.
-
-        В будущем TranslationRouter будет самостоятельно
-        выбирать провайдера для каждого типа сообщения.
         """
 
-        route = self.route("global")
+        route = self.route(
+            "global",
+        )
 
         if route:
             return route[0]
@@ -484,17 +895,21 @@ class ConfigManager:
     ) -> dict:
         """
         Возвращает настройки конкретного провайдера.
-
-        Например:
-
-            config.get_provider("gemini")
         """
 
-        return self.get(
+        result = self.get(
             "providers",
             provider_id,
             default={},
         )
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+            return {}
+
+        return result
 
     # ------------------------------------------------------
 
@@ -510,7 +925,7 @@ class ConfigManager:
         self.set(
             "providers",
             provider_id,
-            value=settings,
+            value=dict(settings),
         )
 
     # ------------------------------------------------------
@@ -565,16 +980,12 @@ class ConfigManager:
 
             ("en", "ru")
 
-        Это означает:
+        означает:
 
             incoming:
                 English -> Russian
 
-        Для исходящих сообщений TranslationRouter
-        должен автоматически использовать обратное направление:
-
-            outgoing:
-                Russian -> English
+        Для исходящих используется обратное направление.
         """
 
         provider = self.get_provider(
@@ -590,6 +1001,10 @@ class ConfigManager:
             "target_language",
             "ru",
         )
+
+        source_language = str(source_language or "en").strip() or "en"
+
+        target_language = str(target_language or "ru").strip() or "ru"
 
         return (
             source_language,
@@ -638,8 +1053,8 @@ class ConfigManager:
         Возвращает языковое направление для ИСХОДЯЩЕГО
         сообщения.
 
-        Оно автоматически является обратным направлению
-        входящего перевода.
+        Направление автоматически является обратным
+        направлению входящего перевода.
 
         Например:
 
@@ -659,38 +1074,6 @@ class ConfigManager:
             source,
         )
 
-    # ------------------------------------------------------
-
-    def provider_outgoing_source_language(
-        self,
-        provider_id: str,
-    ) -> str:
-        """
-        Исходный язык для исходящего сообщения.
-        """
-
-        source, _ = self.provider_outgoing_languages(
-            provider_id,
-        )
-
-        return source
-
-    # ------------------------------------------------------
-
-    def provider_outgoing_target_language(
-        self,
-        provider_id: str,
-    ) -> str:
-        """
-        Целевой язык для исходящего сообщения.
-        """
-
-        _, target = self.provider_outgoing_languages(
-            provider_id,
-        )
-
-        return target
-
     # ======================================================
     # Маршрутизация
     # ======================================================
@@ -702,25 +1085,19 @@ class ConfigManager:
         """
         Возвращает очередь провайдеров для канала.
 
-        Например:
+        Особый случай:
 
-            config.route("whisper")
+            route("outgoing")
 
-        может вернуть:
+        автоматически возвращает маршрут Whisper.
 
-            [
-                "gemini",
-                "openrouter",
-                "google",
-            ]
-
-        Outgoing в будущем должен использовать
-        маршрут Whisper.
+        Outgoing не хранится отдельно в config.json,
+        поскольку используется тот же маршрут.
         """
 
-        # Outgoing не имеет самостоятельной настройки.
-        #
-        # Он всегда использует очередь Whisper.
+        # --------------------------------------------------
+        # Outgoing = Whisper
+        # --------------------------------------------------
 
         if channel == "outgoing":
             channel = "whisper"
@@ -731,11 +1108,9 @@ class ConfigManager:
             default=["google"],
         )
 
-        # Защита от поврежденного config.json.
-        if not isinstance(route, list):
-            return ["google"]
-
-        return route
+        return self._normalize_route(
+            route,
+        )
 
     # ------------------------------------------------------
 
@@ -747,8 +1122,9 @@ class ConfigManager:
         """
         Сохраняет очередь провайдеров для канала.
 
-        Outgoing отдельно не сохраняется.
-        Его маршрут всегда совпадает с Whisper.
+        Outgoing не имеет собственной очереди.
+        При попытке сохранить outgoing данные записываются
+        в whisper.
         """
 
         if channel == "outgoing":
@@ -757,7 +1133,9 @@ class ConfigManager:
         self.set(
             "routing",
             channel,
-            value=list(providers),
+            value=self._normalize_route(
+                providers,
+            ),
         )
 
     # ------------------------------------------------------
@@ -766,26 +1144,28 @@ class ConfigManager:
         """
         Возвращает всю таблицу маршрутизации.
 
-        При этом Outgoing синхронизируется с Whisper
-        для совместимости со старым config.json.
+        Outgoing здесь намеренно отсутствует.
         """
 
-        routing = deepcopy(
-            self.get(
-                "routing",
-                default={},
-            )
+        routing = self.get(
+            "routing",
+            default={},
         )
 
-        if isinstance(routing, dict):
-            routing["outgoing"] = list(
-                routing.get(
-                    "whisper",
-                    ["google"],
-                )
+        if not isinstance(
+            routing,
+            dict,
+        ):
+            return {}
+
+        result = {}
+
+        for channel in DEFAULT_CONFIG["routing"]:
+            result[channel] = self.route(
+                channel,
             )
 
-        return routing
+        return result
 
     # ======================================================
     # Сброс настроек провайдера
@@ -836,8 +1216,8 @@ class ConfigManager:
         по умолчанию.
 
         Используется осторожно:
-        будут сброшены в том числе путь к
-        LatestClient.txt и настройки API-ключей.
+        будут сброшены путь к LatestClient.txt,
+        API-ключи и настройки провайдеров.
         """
 
         self.data = deepcopy(DEFAULT_CONFIG)
