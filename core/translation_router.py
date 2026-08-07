@@ -14,7 +14,6 @@ from .models import MessageContext
 INCOMING = "incoming"
 OUTGOING = "outgoing"
 
-# Каналы, которые реально существуют в PoE.
 VALID_CHANNELS = {
     "global",
     "local",
@@ -29,68 +28,16 @@ VALID_CHANNELS = {
 # RoutingDecision
 # ============================================================
 
-
 @dataclass(slots=True)
 class RoutingDecision:
-    """
-    Результат работы TranslationRouter.
-
-    Содержит всю информацию, необходимую следующему
-    этапу Translation Pipeline.
-    """
-
-    # --------------------------------------------------------
-    # Направление
-    # --------------------------------------------------------
+    """Результат работы TranslationRouter."""
 
     direction: str
-
-    # --------------------------------------------------------
-    # Канал, для которого был выбран маршрут
-    #
-    # Для outgoing здесь будет "whisper",
-    # поскольку исходящие используют маршрут Whisper.
-    # --------------------------------------------------------
-
     channel: str
-
-    # --------------------------------------------------------
-    # Очередь провайдеров
-    #
-    # Порядок имеет значение:
-    #
-    # ["gemini", "openrouter", "google"]
-    #
-    # означает:
-    #
-    # 1. Gemini
-    # 2. OpenRouter
-    # 3. Google
-    # --------------------------------------------------------
-
     providers: List[str]
-
-    # --------------------------------------------------------
-    # Языковое направление
-    # --------------------------------------------------------
-
     source_language: Optional[str] = None
     target_language: Optional[str] = None
-
-    # --------------------------------------------------------
-    # Нужно ли вообще переводить сообщение
-    #
-    # False используется, например, когда локальный
-    # детектор определил, что сообщение уже находится
-    # на нужном языке.
-    # --------------------------------------------------------
-
     should_translate: bool = True
-
-    # --------------------------------------------------------
-    # Причина, по которой перевод не требуется
-    # --------------------------------------------------------
-
     skip_reason: Optional[str] = None
 
 
@@ -98,78 +45,18 @@ class RoutingDecision:
 # TranslationRouter
 # ============================================================
 
-
 class TranslationRouter:
     """
-    Определяет маршрут перевода для MessageContext.
+    Определяет направление, канал, очередь провайдеров
+    и языковое направление для MessageContext.
 
-    Router НЕ выполняет перевод.
-
-    Его задача:
-
-        MessageContext
-            ↓
-        направление
-            ↓
-        канал
-            ↓
-        очередь провайдеров
-            ↓
-        языковое направление
-            ↓
-        RoutingDecision
-
-    Пример:
-
-        incoming Global
-            →
-        ["gemini", "google"]
-            →
-        en -> ru
-
-    Исходящее сообщение:
-
-        outgoing
-            →
-        маршрут Whisper
-            →
-        ["gemini", "google"]
-            →
-        ru -> en
+    Router не выполняет перевод.
     """
 
-    # ========================================================
-    # Основной метод
-    # ========================================================
-
-    def resolve(
-        self,
-        context: MessageContext,
-    ) -> RoutingDecision:
-        """
-        Определяет маршрут для MessageContext.
-
-        Пока Router не занимается детекцией языка.
-        Предполагается, что решение о необходимости перевода
-        будет приниматься TranslationManager перед вызовом
-        Router либо отдельным LanguageDetector.
-
-        Поэтому здесь should_translate по умолчанию True.
-        """
-
-        direction = self._resolve_direction(
-            context,
-        )
-
-        channel = self._resolve_channel(
-            context,
-            direction,
-        )
-
-        providers = self._resolve_providers(
-            channel,
-        )
-
+    def resolve(self, context: MessageContext) -> RoutingDecision:
+        direction = self._resolve_direction(context)
+        channel = self._resolve_channel(context, direction)
+        providers = self._resolve_providers(channel)
         source_language, target_language = self._resolve_languages(
             providers,
             direction,
@@ -189,27 +76,14 @@ class TranslationRouter:
     # Направление
     # ========================================================
 
-    def _resolve_direction(
-        self,
-        context: MessageContext,
-    ) -> str:
+    def _resolve_direction(self, context: MessageContext) -> str:
         """
         Определяет направление сообщения.
 
-        ChatMessage.direction уже предусмотрен моделью:
-
-            direction: Optional[str]
-
-        Для входящих сообщений обычно direction отсутствует.
-
-        Для исходящих ожидается:
-
-            "outgoing"
-
-        Дополнительно принимаем несколько очевидных вариантов,
-        чтобы Router был устойчив к будущим изменениям LogParser.
+        LogParser использует значения From/To.
+        Дополнительно поддерживаем внутренние значения
+        incoming/outgoing и их очевидные варианты.
         """
-
         direction = context.direction
 
         if direction is None:
@@ -222,6 +96,8 @@ class TranslationRouter:
             "out",
             "send",
             "sent",
+            "to",
+            "кому",
         }:
             return OUTGOING
 
@@ -237,23 +113,9 @@ class TranslationRouter:
         direction: str,
     ) -> str:
         """
-        Определяет канал, из которого берётся маршрут.
-
-        Для входящих:
-
-            channel = реальный канал сообщения.
-
-        Для исходящих:
-
-            channel = whisper
-
-        Это соответствует нашей договорённости:
-
-            Outgoing использует маршрут Whisper.
-
-        Отдельный routing.outgoing не используется.
+        Для incoming используется реальный канал.
+        Для outgoing используется маршрут Whisper.
         """
-
         if direction == OUTGOING:
             return "whisper"
 
@@ -267,44 +129,17 @@ class TranslationRouter:
         if normalized in VALID_CHANNELS:
             return normalized
 
-        # Неизвестный канал отправляем в Global.
-        #
-        # Это безопаснее, чем пытаться обратиться
-        # к произвольному ключу конфигурации.
         return "global"
 
     # ========================================================
     # Очередь провайдеров
     # ========================================================
 
-    def _resolve_providers(
-        self,
-        channel: str,
-    ) -> List[str]:
-        """
-        Получает очередь провайдеров из ConfigManager.
-
-        Например:
-
-            routing.whisper = [
-                "gemini",
-                "openrouter",
-                "google",
-            ]
-
-        Router возвращает именно этот порядок.
-        """
-
-        providers = config.route(
-            channel,
-        )
+    def _resolve_providers(self, channel: str) -> List[str]:
+        providers = config.route(channel)
 
         if not providers:
             return ["google"]
-
-        # ----------------------------------------------------
-        # Защита от повреждённого config.json
-        # ----------------------------------------------------
 
         result: List[str] = []
 
@@ -320,10 +155,7 @@ class TranslationRouter:
             if provider_id not in result:
                 result.append(provider_id)
 
-        if not result:
-            return ["google"]
-
-        return result
+        return result or ["google"]
 
     # ========================================================
     # Языки
@@ -334,117 +166,34 @@ class TranslationRouter:
         providers: List[str],
         direction: str,
     ) -> tuple[Optional[str], Optional[str]]:
-        """
-        Определяет языковое направление.
-
-        Важный момент:
-
-        Настройки провайдера в config.json описывают
-        направление ВХОДЯЩЕГО перевода.
-
-        Например:
-
-            source_language = "en"
-            target_language = "ru"
-
-        Для outgoing направление автоматически
-        разворачивается:
-
-            ru -> en
-
-        Используется первый провайдер маршрута,
-        поскольку именно он является первым кандидатом
-        на перевод.
-
-        Если первый провайдер не содержит языковых настроек,
-        используются безопасные значения en -> ru.
-        """
-
         if not providers:
             return None, None
 
         provider_id = providers[0]
 
         if direction == OUTGOING:
-            return config.provider_outgoing_languages(
-                provider_id,
-            )
+            return config.provider_outgoing_languages(provider_id)
 
-        return config.provider_languages(
-            provider_id,
-        )
+        return config.provider_languages(provider_id)
 
     # ========================================================
     # Удобные публичные методы
     # ========================================================
 
-    def route_for_context(
-        self,
-        context: MessageContext,
-    ) -> List[str]:
-        """
-        Возвращает только очередь провайдеров.
-
-        Удобный сокращённый вариант:
-
-            router.route_for_context(context)
-        """
-
-        decision = self.resolve(
-            context,
-        )
-
-        return decision.providers
-
-    # --------------------------------------------------------
+    def route_for_context(self, context: MessageContext) -> List[str]:
+        return self.resolve(context).providers
 
     def languages_for_context(
         self,
         context: MessageContext,
     ) -> tuple[Optional[str], Optional[str]]:
-        """
-        Возвращает языковое направление для сообщения.
+        decision = self.resolve(context)
+        return decision.source_language, decision.target_language
 
-        Например:
-
-            ("en", "ru")
-
-        или для outgoing:
-
-            ("ru", "en")
-        """
-
-        decision = self.resolve(
-            context,
-        )
-
-        return (
-            decision.source_language,
-            decision.target_language,
-        )
-
-    # --------------------------------------------------------
-
-    def is_outgoing(
-        self,
-        context: MessageContext,
-    ) -> bool:
-        """
-        Проверяет, является ли сообщение исходящим.
-        """
-
+    def is_outgoing(self, context: MessageContext) -> bool:
         return self._resolve_direction(context) == OUTGOING
 
-    # --------------------------------------------------------
-
-    def is_incoming(
-        self,
-        context: MessageContext,
-    ) -> bool:
-        """
-        Проверяет, является ли сообщение входящим.
-        """
-
+    def is_incoming(self, context: MessageContext) -> bool:
         return self._resolve_direction(context) == INCOMING
 
 
@@ -457,110 +206,35 @@ if __name__ == "__main__":
 
     router = TranslationRouter()
 
-    # --------------------------------------------------------
-    # Incoming Global
-    # --------------------------------------------------------
+    tests = [
+        ("Incoming Global", "global", None, "WTB mirror"),
+        ("Incoming Local", "local", None, "Selling Mageblood"),
+        ("Incoming Whisper", "whisper", None, "Hi, are you selling this?"),
+        ("Outgoing To", "global", "To", "Куплю Mageblood"),
+        ("Outgoing outgoing", "global", "outgoing", "Buy Mageblood"),
+    ]
 
-    incoming_global = ChatMessage(
-        channel="global",
-        channel_symbol="#",
-        sender="Tester",
-        text="WTB mirror",
-        direction=None,
-    )
+    for title, channel, direction, text in tests:
+        message = ChatMessage(
+            channel=channel,
+            channel_symbol="#" if channel == "global" else "",
+            sender="Tester",
+            text=text,
+            direction=direction,
+        )
 
-    context = MessageContext.from_chat_message(
-        incoming_global,
-    )
+        decision = router.resolve(
+            MessageContext.from_chat_message(message)
+        )
 
-    decision = router.resolve(
-        context,
-    )
-
-    print("=== Incoming Global ===")
-    print("direction:", decision.direction)
-    print("channel:", decision.channel)
-    print("providers:", decision.providers)
-    print("languages:", decision.source_language, "->", decision.target_language)
-    print()
-
-    # --------------------------------------------------------
-    # Incoming Local
-    # --------------------------------------------------------
-
-    incoming_local = ChatMessage(
-        channel="local",
-        channel_symbol="",
-        sender="Tester",
-        text="Selling Mageblood",
-        direction=None,
-    )
-
-    context = MessageContext.from_chat_message(
-        incoming_local,
-    )
-
-    decision = router.resolve(
-        context,
-    )
-
-    print("=== Incoming Local ===")
-    print("direction:", decision.direction)
-    print("channel:", decision.channel)
-    print("providers:", decision.providers)
-    print("languages:", decision.source_language, "->", decision.target_language)
-    print()
-
-    # --------------------------------------------------------
-    # Incoming Whisper
-    # --------------------------------------------------------
-
-    incoming_whisper = ChatMessage(
-        channel="whisper",
-        channel_symbol="",
-        sender="Tester",
-        text="Hi, are you selling this?",
-        direction=None,
-    )
-
-    context = MessageContext.from_chat_message(
-        incoming_whisper,
-    )
-
-    decision = router.resolve(
-        context,
-    )
-
-    print("=== Incoming Whisper ===")
-    print("direction:", decision.direction)
-    print("channel:", decision.channel)
-    print("providers:", decision.providers)
-    print("languages:", decision.source_language, "->", decision.target_language)
-    print()
-
-    # --------------------------------------------------------
-    # Outgoing
-    # --------------------------------------------------------
-
-    outgoing = ChatMessage(
-        channel="global",
-        channel_symbol="#",
-        sender="Me",
-        text="Куплю Mageblood",
-        direction="outgoing",
-    )
-
-    context = MessageContext.from_chat_message(
-        outgoing,
-    )
-
-    decision = router.resolve(
-        context,
-    )
-
-    print("=== Outgoing ===")
-    print("direction:", decision.direction)
-    print("channel:", decision.channel)
-    print("providers:", decision.providers)
-    print("languages:", decision.source_language, "->", decision.target_language)
-    print()
+        print(f"=== {title} ===")
+        print("direction:", decision.direction)
+        print("channel:", decision.channel)
+        print("providers:", decision.providers)
+        print(
+            "languages:",
+            decision.source_language,
+            "->",
+            decision.target_language,
+        )
+        print()
