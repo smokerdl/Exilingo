@@ -33,6 +33,21 @@ DEFAULT_CONFIG = {
         "font_size": 13,
     },
     # ------------------------------------------------------
+    # Игровой чат
+    # ------------------------------------------------------
+    #
+    # Координаты точки активации строки ввода сообщений
+    # игрового чата в экранных координатах Windows.
+    #
+    # x=0, y=0 означает, что точка ещё не откалибрована.
+    #
+    "game_chat": {
+        "input_point": {
+            "x": 0,
+            "y": 0,
+        },
+    },
+    # ------------------------------------------------------
     # Переводчики
     # ------------------------------------------------------
     "providers": {
@@ -122,9 +137,6 @@ DEFAULT_CONFIG = {
     # Исходящие сообщения используют тот же маршрут,
     # что и Whisper.
     #
-    # Это позволяет не дублировать одну и ту же
-    # очередь в настройках.
-    # ------------------------------------------------------
     "routing": {
         "global": [
             "google",
@@ -164,6 +176,8 @@ class ConfigManager:
     - значения по умолчанию;
     - миграцию старой конфигурации;
     - доступ к общим настройкам;
+    - доступ к настройкам Overlay;
+    - доступ к точке активации игрового чата;
     - доступ к настройкам провайдеров;
     - доступ к маршрутам переводчиков;
     - языковые настройки входящих/исходящих переводов.
@@ -178,8 +192,6 @@ class ConfigManager:
     ):
         self.filename = Path(filename)
 
-        # Начинаем с полной копии конфигурации
-        # по умолчанию.
         self.data = deepcopy(DEFAULT_CONFIG)
 
         self.load()
@@ -214,23 +226,17 @@ class ConfigManager:
                 print("[Config] Ошибка: config.json должен содержать JSON-объект.")
                 return
 
-            # Сначала объединяем старую конфигурацию
-            # с актуальными значениями по умолчанию.
             self._merge_dict(
                 self.data,
                 loaded,
             )
 
-            # Затем переносим старые параметры
-            # в актуальную структуру.
             self._migrate_legacy_config(
                 loaded,
             )
 
-            # Нормализуем структуру.
             self._normalize_config()
 
-            # Сохраняем уже актуальную конфигурацию.
             self.save()
 
         except Exception as e:
@@ -246,23 +252,6 @@ class ConfigManager:
     ):
         """
         Переносит настройки из старых версий Exilingo.
-
-        Ранее часть настроек могла находиться непосредственно
-        в корне config.json:
-
-            "log_path"
-            "overlay_geometry"
-            "font_size"
-            "translation"
-
-        Теперь они находятся в:
-
-            general.log_path
-            overlay.geometry
-            overlay.font_size
-            providers / routing
-
-        При наличии новой структуры она имеет приоритет.
         """
 
         # --------------------------------------------------
@@ -291,7 +280,6 @@ class ConfigManager:
         if isinstance(legacy_geometry, dict):
             default_geometry = DEFAULT_CONFIG["overlay"]["geometry"]
 
-            # Переносим только отсутствующие значения.
             for key in (
                 "x",
                 "y",
@@ -320,18 +308,6 @@ class ConfigManager:
         # --------------------------------------------------
         # Старый translation
         # --------------------------------------------------
-        #
-        # Старые версии могли хранить:
-        #
-        # "translation": {
-        #     "provider": "google",
-        #     "source_language": "en",
-        #     "target_language": "ru"
-        # }
-        #
-        # Переносим эти данные в Google, если актуальные
-        # значения ещё не были настроены.
-        # --------------------------------------------------
 
         legacy_translation = loaded.get(
             "translation",
@@ -344,11 +320,6 @@ class ConfigManager:
                 provider_id = str(legacy_translation["provider"])
 
                 if provider_id in self.data["providers"]:
-                    # Старый provider использовался как
-                    # единственный активный переводчик.
-                    #
-                    # Добавляем его в Global/Whisper только
-                    # если текущий маршрут ещё стандартный.
                     for channel in (
                         "global",
                         "local",
@@ -384,10 +355,6 @@ class ConfigManager:
     def _normalize_config(self):
         """
         Проверяет и нормализует структуру конфигурации.
-
-        Здесь мы не меняем пользовательские значения
-        без необходимости, а только защищаем приложение
-        от поврежденных или устаревших данных.
         """
 
         # --------------------------------------------------
@@ -419,7 +386,10 @@ class ConfigManager:
             deepcopy(DEFAULT_CONFIG["overlay"]["geometry"]),
         )
 
-        if not isinstance(geometry, dict):
+        if not isinstance(
+            geometry,
+            dict,
+        ):
             geometry = deepcopy(DEFAULT_CONFIG["overlay"]["geometry"])
 
         for key in (
@@ -437,6 +407,7 @@ class ConfigManager:
 
             try:
                 geometry[key] = int(value)
+
             except (TypeError, ValueError):
                 geometry[key] = default_value
 
@@ -449,8 +420,48 @@ class ConfigManager:
                     DEFAULT_CONFIG["overlay"]["font_size"],
                 )
             )
+
         except (TypeError, ValueError):
             overlay["font_size"] = DEFAULT_CONFIG["overlay"]["font_size"]
+
+        # --------------------------------------------------
+        # Game chat
+        # --------------------------------------------------
+
+        game_chat = self.data.setdefault(
+            "game_chat",
+            {},
+        )
+
+        input_point = game_chat.setdefault(
+            "input_point",
+            deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"]),
+        )
+
+        if not isinstance(
+            input_point,
+            dict,
+        ):
+            input_point = deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"])
+
+        for key in (
+            "x",
+            "y",
+        ):
+            default_value = DEFAULT_CONFIG["game_chat"]["input_point"][key]
+
+            value = input_point.get(
+                key,
+                default_value,
+            )
+
+            try:
+                input_point[key] = int(value)
+
+            except (TypeError, ValueError):
+                input_point[key] = default_value
+
+        game_chat["input_point"] = input_point
 
         # --------------------------------------------------
         # Providers
@@ -467,19 +478,23 @@ class ConfigManager:
                 deepcopy(defaults),
             )
 
-            if not isinstance(provider, dict):
+            if not isinstance(
+                provider,
+                dict,
+            ):
                 provider = deepcopy(defaults)
                 providers[provider_id] = provider
 
             provider["enabled"] = bool(
                 provider.get(
                     "enabled",
-                    defaults.get("enabled", False),
+                    defaults.get(
+                        "enabled",
+                        False,
+                    ),
                 )
             )
 
-            # Все провайдеры используют единое
-            # представление направления.
             source_language = provider.get(
                 "source_language",
                 defaults.get(
@@ -507,7 +522,10 @@ class ConfigManager:
                 provider["model"] = str(
                     provider.get(
                         "model",
-                        defaults.get("model", ""),
+                        defaults.get(
+                            "model",
+                            "",
+                        ),
                     )
                     or ""
                 )
@@ -516,7 +534,10 @@ class ConfigManager:
                 provider["system_prompt"] = str(
                     provider.get(
                         "system_prompt",
-                        defaults.get("system_prompt", ""),
+                        defaults.get(
+                            "system_prompt",
+                            "",
+                        ),
                     )
                     or ""
                 )
@@ -551,13 +572,19 @@ class ConfigManager:
             {},
         )
 
-        for channel, default_route in DEFAULT_CONFIG["routing"].items():
+        for (
+            channel,
+            default_route,
+        ) in DEFAULT_CONFIG["routing"].items():
             route = routing.get(
                 channel,
                 deepcopy(default_route),
             )
 
-            if not isinstance(route, list):
+            if not isinstance(
+                route,
+                list,
+            ):
                 route = deepcopy(default_route)
 
             routing[channel] = self._normalize_route(
@@ -567,20 +594,15 @@ class ConfigManager:
         # --------------------------------------------------
         # Legacy outgoing route
         # --------------------------------------------------
-        #
-        # Outgoing больше не является самостоятельной
-        # настройкой.
-        #
-        # Если старый config.json содержит outgoing,
-        # его маршрут переносим в whisper, если whisper
-        # ещё не был явно изменён.
-        # --------------------------------------------------
 
         legacy_outgoing = routing.get(
             "outgoing",
         )
 
-        if isinstance(legacy_outgoing, list):
+        if isinstance(
+            legacy_outgoing,
+            list,
+        ):
             whisper_route = routing.get(
                 "whisper",
                 [],
@@ -607,10 +629,6 @@ class ConfigManager:
         self,
         providers: list,
     ) -> list[str]:
-        """
-        Удаляет поврежденные значения и дубликаты
-        из очереди провайдеров.
-        """
 
         if not isinstance(
             providers,
@@ -653,7 +671,7 @@ class ConfigManager:
 
     def save(self):
         """
-        Сохраняет текущую конфигурацию в config.json.
+        Сохраняет текущую конфигурацию.
         """
 
         try:
@@ -681,13 +699,7 @@ class ConfigManager:
         loaded: dict,
     ):
         """
-        Рекурсивно объединяет загруженную конфигурацию
-        с конфигурацией по умолчанию.
-
-        Значения из loaded имеют приоритет.
-
-        Отсутствующие новые настройки остаются
-        из DEFAULT_CONFIG.
+        Рекурсивно объединяет конфигурацию.
         """
 
         for key, value in loaded.items():
@@ -721,14 +733,6 @@ class ConfigManager:
     ):
         """
         Получает значение по цепочке ключей.
-
-        Например:
-
-            config.get(
-                "providers",
-                "gemini",
-                "api_key",
-            )
         """
 
         obj: Any = self.data
@@ -784,9 +788,6 @@ class ConfigManager:
 
     @property
     def log_path(self) -> str:
-        """
-        Путь к LatestClient.txt.
-        """
 
         return self.get(
             "general",
@@ -799,6 +800,7 @@ class ConfigManager:
         self,
         value: str,
     ):
+
         self.set(
             "general",
             "log_path",
@@ -811,16 +813,6 @@ class ConfigManager:
 
     @property
     def overlay_geometry(self):
-        """
-        Геометрия Overlay:
-
-        {
-            "x": ...,
-            "y": ...,
-            "w": ...,
-            "h": ...
-        }
-        """
 
         return self.get(
             "overlay",
@@ -833,6 +825,7 @@ class ConfigManager:
         self,
         value,
     ):
+
         self.set(
             "overlay",
             "geometry",
@@ -843,9 +836,6 @@ class ConfigManager:
 
     @property
     def font_size(self) -> int:
-        """
-        Размер шрифта Overlay.
-        """
 
         return self.get(
             "overlay",
@@ -858,11 +848,137 @@ class ConfigManager:
         self,
         value: int,
     ):
+
         self.set(
             "overlay",
             "font_size",
             value=value,
         )
+
+    # ======================================================
+    # Точка активации строки ввода игрового чата
+    # ======================================================
+
+    @property
+    def game_chat_input_point(self) -> dict:
+        """
+        Возвращает экранную координату точки,
+        по которой необходимо кликнуть для активации
+        строки ввода сообщений игрового чата.
+
+        Формат:
+
+            {
+                "x": 742,
+                "y": 1012
+            }
+
+        Координаты задаются относительно всего экрана.
+
+        {0, 0} означает, что точка ещё не откалибрована.
+        """
+
+        point = self.get(
+            "game_chat",
+            "input_point",
+            default=deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"]),
+        )
+
+        if not isinstance(
+            point,
+            dict,
+        ):
+            return deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"])
+
+        return {
+            "x": int(
+                point.get(
+                    "x",
+                    0,
+                )
+            ),
+            "y": int(
+                point.get(
+                    "y",
+                    0,
+                )
+            ),
+        }
+
+    @game_chat_input_point.setter
+    def game_chat_input_point(
+        self,
+        value: dict,
+    ):
+        """
+        Устанавливает экранную координату точки
+        активации строки ввода игрового чата.
+        """
+
+        if not isinstance(
+            value,
+            dict,
+        ):
+            raise ValueError("game_chat_input_point должен быть dict.")
+
+        try:
+            x = int(
+                value.get(
+                    "x",
+                    0,
+                )
+            )
+
+            y = int(
+                value.get(
+                    "y",
+                    0,
+                )
+            )
+
+        except (TypeError, ValueError):
+            raise ValueError("Координаты точки должны быть целыми числами.")
+
+        self.set(
+            "game_chat",
+            "input_point",
+            value={
+                "x": x,
+                "y": y,
+            },
+        )
+
+    # ------------------------------------------------------
+
+    def set_game_chat_input_point(
+        self,
+        x: int,
+        y: int,
+    ):
+        """
+        Устанавливает точку активации строки ввода
+        игрового чата.
+
+        Координаты являются экранными координатами Windows.
+        """
+
+        self.game_chat_input_point = {
+            "x": x,
+            "y": y,
+        }
+
+    # ------------------------------------------------------
+
+    @property
+    def game_chat_input_point_configured(self) -> bool:
+        """
+        Возвращает True, если точка активации
+        строки ввода игрового чата уже откалибрована.
+        """
+
+        point = self.game_chat_input_point
+
+        return point["x"] != 0 or point["y"] != 0
 
     # ======================================================
     # Активный переводчик по умолчанию
@@ -893,9 +1009,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> dict:
-        """
-        Возвращает настройки конкретного провайдера.
-        """
 
         result = self.get(
             "providers",
@@ -918,9 +1031,6 @@ class ConfigManager:
         provider_id: str,
         settings: dict,
     ):
-        """
-        Полностью заменяет настройки провайдера.
-        """
 
         self.set(
             "providers",
@@ -934,9 +1044,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> bool:
-        """
-        Проверяет, включен ли провайдер.
-        """
 
         return bool(
             self.get(
@@ -954,9 +1061,6 @@ class ConfigManager:
         provider_id: str,
         enabled: bool,
     ):
-        """
-        Включает или выключает провайдера.
-        """
 
         self.set(
             "providers",
@@ -973,20 +1077,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> tuple[str, str]:
-        """
-        Возвращает языки провайдера для ВХОДЯЩИХ сообщений.
-
-        Например:
-
-            ("en", "ru")
-
-        означает:
-
-            incoming:
-                English -> Russian
-
-        Для исходящих используется обратное направление.
-        """
 
         provider = self.get_provider(
             provider_id,
@@ -1017,9 +1107,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> str:
-        """
-        Исходный язык для ВХОДЯЩЕГО сообщения.
-        """
 
         source, _ = self.provider_languages(
             provider_id,
@@ -1033,9 +1120,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> str:
-        """
-        Целевой язык для ВХОДЯЩЕГО сообщения.
-        """
 
         _, target = self.provider_languages(
             provider_id,
@@ -1050,19 +1134,14 @@ class ConfigManager:
         provider_id: str,
     ) -> tuple[str, str]:
         """
-        Возвращает языковое направление для ИСХОДЯЩЕГО
+        Возвращает языковое направление для исходящего
         сообщения.
 
-        Направление автоматически является обратным
-        направлению входящего перевода.
+        incoming:
+            en -> ru
 
-        Например:
-
-            incoming:
-                en -> ru
-
-            outgoing:
-                ru -> en
+        outgoing:
+            ru -> en
         """
 
         source, target = self.provider_languages(
@@ -1085,19 +1164,8 @@ class ConfigManager:
         """
         Возвращает очередь провайдеров для канала.
 
-        Особый случай:
-
-            route("outgoing")
-
-        автоматически возвращает маршрут Whisper.
-
-        Outgoing не хранится отдельно в config.json,
-        поскольку используется тот же маршрут.
+        Outgoing автоматически использует Whisper.
         """
-
-        # --------------------------------------------------
-        # Outgoing = Whisper
-        # --------------------------------------------------
 
         if channel == "outgoing":
             channel = "whisper"
@@ -1122,9 +1190,7 @@ class ConfigManager:
         """
         Сохраняет очередь провайдеров для канала.
 
-        Outgoing не имеет собственной очереди.
-        При попытке сохранить outgoing данные записываются
-        в whisper.
+        Outgoing записывается в Whisper.
         """
 
         if channel == "outgoing":
@@ -1142,21 +1208,10 @@ class ConfigManager:
 
     def routing(self) -> dict:
         """
-        Возвращает всю таблицу маршрутизации.
+        Возвращает таблицу маршрутизации.
 
-        Outgoing здесь намеренно отсутствует.
+        Outgoing намеренно отсутствует.
         """
-
-        routing = self.get(
-            "routing",
-            default={},
-        )
-
-        if not isinstance(
-            routing,
-            dict,
-        ):
-            return {}
 
         result = {}
 
@@ -1175,10 +1230,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ):
-        """
-        Восстанавливает настройки конкретного провайдера
-        из DEFAULT_CONFIG.
-        """
 
         providers = DEFAULT_CONFIG["providers"]
 
@@ -1196,10 +1247,6 @@ class ConfigManager:
     # ======================================================
 
     def reset_routing(self):
-        """
-        Полностью восстанавливает маршрутизацию
-        по умолчанию.
-        """
 
         self.set(
             "routing",
@@ -1211,14 +1258,6 @@ class ConfigManager:
     # ======================================================
 
     def reset_all(self):
-        """
-        Полностью восстанавливает конфигурацию
-        по умолчанию.
-
-        Используется осторожно:
-        будут сброшены путь к LatestClient.txt,
-        API-ключи и настройки провайдеров.
-        """
 
         self.data = deepcopy(DEFAULT_CONFIG)
 

@@ -4,13 +4,19 @@
     },
     "overlay": {
         "geometry": {
-            "x": 1,
-            "y": 1,
+            "x": 0,
+            "y": 0,
             "w": 701,
             "h": 371
         },
         "font_size": 13,
         "outgoing_channel": "local"
+    },
+    "game_chat": {
+        "input_point": {
+            "x": 734,
+            "y": 490
+        }
     },
     "providers": {
         "google": {
