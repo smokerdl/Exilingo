@@ -240,11 +240,11 @@ class ChatOverlay(QWidget):
         return text.split(None, 1)[0]
 
     def _whisper_input_after_send(self, text: str) -> str:
-        """Оставляет никнейм и обязательный пробел после отправки Whisper."""
+        """Оставляет никнейм с @ и обязательный пробел после отправки Whisper."""
         target = self._extract_whisper_target(text)
         if not target:
             return ""
-        return f"{target} "
+        return f"@{target} "
 
     def _on_send(self):
         raw_text = self.input_field.text()
