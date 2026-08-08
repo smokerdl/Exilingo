@@ -23,8 +23,10 @@ CHAT_CHANNELS = [
 ]
 CHAT_PREFIXES = {prefix for _, _, prefix in CHAT_CHANNELS if prefix}
 
+
 class GlobalHotkeyListener(QObject):
     toggle_requested = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         try:
@@ -32,8 +34,10 @@ class GlobalHotkeyListener(QObject):
             keyboard.add_hotkey("enter", self._on_enter_pressed)
         except Exception as e:
             print(f"[HotkeyError] Не удалось зарегистрировать клавишу: {e}")
+
     def _on_enter_pressed(self):
         self.toggle_requested.emit()
+
 
 class ChatOverlay(QWidget):
     settings_requested = Signal()
@@ -54,54 +58,71 @@ class ChatOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.resize(500, 250)
         self.setMinimumSize(280, 120)
+
         self.main_frame = QFrame(self)
         self.main_frame.setObjectName("MainFrame")
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.main_frame)
+
         self.frame_layout = QVBoxLayout(self.main_frame)
         self.frame_layout.setContentsMargins(6, 6, 6, 6)
+
         self.header_widget = QWidget(self)
         header_layout = QHBoxLayout(self.header_widget)
         header_layout.setContentsMargins(4, 2, 4, 4)
+
         self.title_label = QLabel("<b>EXILINGO CHAT</b>", self)
         self.title_label.setStyleSheet("color: #AF9870; font-size: 11px;")
+
         self.settings_button = QPushButton("⚙", self)
         self.settings_button.setObjectName("HeaderBtn")
         self.settings_button.setFixedSize(22, 22)
         self.settings_button.setToolTip("Настройки Exilingo")
         self.settings_button.clicked.connect(self.settings_requested.emit)
+
         self.close_button = QPushButton("✕", self)
         self.close_button.setObjectName("HeaderBtn")
         self.close_button.setFixedSize(22, 22)
         self.close_button.setToolTip("Закрыть оверлей")
         self.close_button.clicked.connect(self.close_requested.emit)
+
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.settings_button)
         header_layout.addWidget(self.close_button)
+
         self.chat_history = QTextEdit(self)
         self.chat_history.setReadOnly(True)
+
         self.input_widget = QWidget(self)
         input_layout = QHBoxLayout(self.input_widget)
         input_layout.setContentsMargins(0, 4, 0, 0)
+
         self.channel_combo = QComboBox(self)
         self.channel_combo.setMinimumWidth(150)
         self.channel_combo.setToolTip("Выберите канал, в который будет отправлено сообщение")
         for channel_id, title, prefix in CHAT_CHANNELS:
             self.channel_combo.addItem(title, channel_id)
         self.channel_combo.setCurrentIndex(0)
+        self.channel_combo.currentIndexChanged.connect(self._on_channel_changed)
+
         self.input_field = QLineEdit(self)
         self.input_field.setPlaceholderText("Введите сообщение...")
         self.input_field.returnPressed.connect(self._on_send)
+
         self.send_btn = QPushButton("Отправить", self)
         self.send_btn.clicked.connect(self._on_send)
+
         self.size_grip = QSizeGrip(self)
         self.size_grip.setFixedSize(16, 16)
+
         input_layout.addWidget(self.channel_combo)
         input_layout.addWidget(self.input_field)
         input_layout.addWidget(self.send_btn)
         input_layout.addWidget(self.size_grip, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+
         self.frame_layout.addWidget(self.header_widget)
         self.frame_layout.addWidget(self.chat_history)
         self.frame_layout.addWidget(self.input_widget)
@@ -112,13 +133,16 @@ class ChatOverlay(QWidget):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
             geo = data.get("overlay_geometry", {})
             if not geo:
                 overlay = data.get("overlay", {})
                 if isinstance(overlay, dict):
                     geo = overlay.get("geometry", {})
+
             if all(key in geo for key in ("x", "y", "w", "h")):
                 self.setGeometry(int(geo["x"]), int(geo["y"]), int(geo["w"]), int(geo["h"]))
+
             if "font_size" in data:
                 self.font_size = int(data["font_size"])
             else:
@@ -136,15 +160,18 @@ class ChatOverlay(QWidget):
                     config_data = json.load(f)
             except Exception:
                 config_data = {}
+
         geometry = {"x": self.x(), "y": self.y(), "w": self.width(), "h": self.height()}
         config_data["overlay_geometry"] = geometry
         config_data["font_size"] = self.font_size
+
         overlay = config_data.setdefault("overlay", {})
         if not isinstance(overlay, dict):
             overlay = {}
             config_data["overlay"] = overlay
         overlay["geometry"] = geometry
         overlay["font_size"] = self.font_size
+
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=4, ensure_ascii=False)
@@ -164,8 +191,10 @@ class ChatOverlay(QWidget):
     def set_input_mode(self, enabled: bool):
         if self.is_input_mode and not enabled:
             self.save_config()
+
         self.is_input_mode = enabled
         self._set_click_through(not enabled)
+
         if enabled:
             self.header_widget.show()
             self.input_widget.show()
@@ -216,6 +245,18 @@ class ChatOverlay(QWidget):
             if self.is_input_mode:
                 self.save_config()
 
+    def _channel_prefix(self, channel_id: str) -> str:
+        for current_channel_id, _title, prefix in CHAT_CHANNELS:
+            if current_channel_id == channel_id:
+                return prefix
+        return ""
+
+    def _on_channel_changed(self, _index: int):
+        """При смене канала полностью сбрасывает старое содержимое и ставит префикс нового канала."""
+        prefix = self._channel_prefix(self.channel_combo.currentData())
+        self.input_field.setText(f"{prefix} " if prefix else "")
+        self.input_field.setCursorPosition(len(self.input_field.text()))
+
     def _prepare_outgoing_message(self, text: str) -> str:
         text = text.strip()
         if not text:
@@ -223,10 +264,8 @@ class ChatOverlay(QWidget):
         if text[0] in CHAT_PREFIXES:
             return text
         channel_id = self.channel_combo.currentData()
-        for current_channel_id, _title, prefix in CHAT_CHANNELS:
-            if current_channel_id == channel_id:
-                return prefix + text
-        return text
+        prefix = self._channel_prefix(channel_id)
+        return prefix + text if prefix else text
 
     def _extract_whisper_target(self, text: str) -> str:
         """Возвращает никнейм из Whisper-строки, если он присутствует."""
@@ -252,23 +291,30 @@ class ChatOverlay(QWidget):
         if not text:
             self.set_input_mode(False)
             return
+
         channel_id = self.channel_combo.currentData()
         prepared_text = self._prepare_outgoing_message(text)
         if not prepared_text:
             self.set_input_mode(False)
             return
+
         print("[ChatOverlay] Исходящее сообщение:", prepared_text)
         self.send_message_requested.emit(prepared_text)
+
         if channel_id == "whisper":
             self.input_field.setText(self._whisper_input_after_send(prepared_text))
         else:
-            self.input_field.clear()
+            prefix = self._channel_prefix(channel_id)
+            self.input_field.setText(f"{prefix} " if prefix else "")
+
+        self.input_field.setCursorPosition(len(self.input_field.text()))
         self.set_input_mode(False)
 
     def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
         html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:#FF3333; font-weight:bold;">{channel_prefix}{sender}:</span><span style="color:{text_color};">{text}</span></div>"""
         self.chat_history.append(html)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
