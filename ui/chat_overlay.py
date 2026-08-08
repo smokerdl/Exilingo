@@ -312,7 +312,7 @@ class ChatOverlay(QWidget):
 
     def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
-        html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:#FF3333; font-weight:bold;">{channel_prefix}{sender}:</span><span style="color:{text_color};">{text}</span></div>"""
+        html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:#FF3333; font-weight:bold;">{channel_prefix}{sender}: </span><span style="color:{text_color};">{text}</span></div>"""
         self.chat_history.append(html)
 
 
