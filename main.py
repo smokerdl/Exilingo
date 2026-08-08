@@ -1,6 +1,7 @@
 import sys
 import os
 
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
 from core.log_reader import LogReaderThread
@@ -39,6 +40,61 @@ OUTGOING_CHANNELS = {
 }
 
 
+# ============================================================
+# F5 — отправка сообщения без переключения режима Overlay
+# ============================================================
+
+class OutgoingHotkeyListener(QObject):
+    """
+    Отдельный глобальный слушатель F5.
+
+    Enter остаётся полностью за GlobalHotkeyListener и
+    переключает режим Overlay.
+
+    F5 только инициирует отправку текущего текста из Overlay
+    и никогда не меняет режим click-through.
+    """
+
+    send_requested = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+
+        self._keyboard = None
+
+        try:
+            import keyboard
+
+            self._keyboard = keyboard
+
+            keyboard.add_hotkey(
+                "f5",
+                self._on_f5,
+            )
+
+            print(
+                "[Hotkey] F5 зарегистрирована: отправка сообщения."
+            )
+
+        except Exception as e:
+            print(
+                f"[HotkeyError] Не удалось зарегистрировать F5: {e}"
+            )
+
+    def _on_f5(self):
+        print("[Hotkey] F5 нажата -> запрос отправки сообщения.")
+        self.send_requested.emit()
+
+    def stop(self):
+        if self._keyboard is None:
+            return
+
+        try:
+            self._keyboard.remove_hotkey("f5")
+        except Exception as e:
+            print(f"[HotkeyError] Не удалось снять F5: {e}")
+
+
 class ExilingoApp:
     def __init__(self):
 
@@ -63,7 +119,18 @@ class ExilingoApp:
 
         self.hotkey_listener = GlobalHotkeyListener()
 
-        self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
+        # Enter = только переключение режима Overlay.
+        self.hotkey_listener.toggle_requested.connect(
+            self.overlay.toggle_mode
+        )
+
+        # F5 = только отправка текущего сообщения.
+        # Режим Overlay при этом НЕ меняется.
+        self.outgoing_hotkey_listener = OutgoingHotkeyListener()
+
+        self.outgoing_hotkey_listener.send_requested.connect(
+            self.overlay._on_send
+        )
 
         # ---------------------------------------------------
         # Provider Registry + Router
@@ -81,9 +148,13 @@ class ExilingoApp:
             router=self.translation_router,
         )
 
-        self.translation_manager.translation_finished.connect(self.on_message_ready)
+        self.translation_manager.translation_finished.connect(
+            self.on_message_ready
+        )
 
-        self.translation_manager.translation_failed.connect(self.on_translation_failed)
+        self.translation_manager.translation_failed.connect(
+            self.on_translation_failed
+        )
 
         self.translation_manager.start()
 
@@ -117,9 +188,13 @@ class ExilingoApp:
             read_from_end=True,
         )
 
-        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
+        self.log_reader.new_chat_message.connect(
+            self.on_new_chat_message
+        )
 
-        self.log_reader.status_changed.connect(self.on_log_status)
+        self.log_reader.status_changed.connect(
+            self.on_log_status
+        )
 
     # =======================================================
     # Верхняя панель Overlay
@@ -129,6 +204,11 @@ class ExilingoApp:
         """Завершает работу программы."""
 
         print("[MAIN] Завершение работы...")
+
+        try:
+            self.outgoing_hotkey_listener.stop()
+        except Exception:
+            pass
 
         self.app.quit()
 
@@ -179,23 +259,12 @@ class ExilingoApp:
 
         Overlay уже добавляет игровой prefix, если пользователь
         не указал его самостоятельно.
-
-        Например:
-
-            "hello"          -> Local
-            "#hello"         -> Global
-            "%hello"         -> Party
-            "@Bob hello"     -> Whisper
-            "$hello"         -> Trade
-            "&hello"         -> Guild
-
-        Далее сообщение проходит через TranslationManager
-        с direction="outgoing".
         """
 
         text = str(text or "").strip()
 
         if not text:
+            print("[MAIN] Пустое исходящее сообщение — игнорируем.")
             return
 
         prefix = text[0] if text[0] in OUTGOING_CHANNELS else ""
@@ -215,11 +284,14 @@ class ExilingoApp:
 
         print(
             "[MAIN] Исходящее сообщение из Overlay:",
-            text,
+            repr(text),
             f"channel={channel}",
+            f"prefix={prefix!r}",
         )
 
-        self.translation_manager.enqueue(MessageContext.from_chat_message(msg))
+        self.translation_manager.enqueue(
+            MessageContext.from_chat_message(msg)
+        )
 
     # =======================================================
     # Translation Pipeline
@@ -230,8 +302,6 @@ class ExilingoApp:
         context: MessageContext,
     ):
         """
-        Обрабатывает успешный результат TranslationManager.
-
         Incoming:
             сообщение отображается в Overlay.
 
@@ -239,56 +309,46 @@ class ExilingoApp:
             перевод отправляется в игровой чат через
             GameChatSender.
 
-        ВАЖНО:
-
-            Исходящее сообщение НЕ отображается напрямую
-            в Overlay.
-
-        После отправки в игру Path of Exile сама записывает
-        сообщение в LatestClient.txt.
-
-        Затем LogReader -> LogParser -> TranslationManager
-        обрабатывают его как обычное входящее сообщение.
-
-        Благодаря этому в Overlay появляется именно:
-
-            Вася: Привет
-
-        а не искусственное:
-
-            You: Hello
+        Outgoing НЕ отображается напрямую в Overlay.
+        После отправки PoE должна записать сообщение в
+        LatestClient.txt, после чего оно вернётся через
+        обычный LogReader -> LogParser -> TranslationManager.
         """
 
         print(
             "[MAIN] Сообщение готово:",
-            context.display_text,
+            repr(context.display_text),
+            f"provider={context.provider!r}",
+            f"direction={context.direction!r}",
         )
 
-        # ---------------------------------------------------
-        # Определяем outgoing
-        # ---------------------------------------------------
-
-        is_outgoing = context.direction is not None and str(
-            context.direction
-        ).strip().lower() in {
-            "outgoing",
-            "out",
-            "send",
-            "sent",
-            "to",
-            "кому",
-        }
+        is_outgoing = (
+            context.direction is not None
+            and str(context.direction).strip().lower()
+            in {
+                "outgoing",
+                "out",
+                "send",
+                "sent",
+                "to",
+                "кому",
+            }
+        )
 
         # ---------------------------------------------------
         # Outgoing
         # ---------------------------------------------------
 
         if is_outgoing:
-            prepared_text = context.display_text or context.original_text
+
+            prepared_text = (
+                context.display_text
+                or context.original_text
+            )
 
             print(
-                "[MAIN] Отправка исходящего сообщения в игру:",
-                prepared_text,
+                "[MAIN] OUTGOING -> GameChatSender.send():",
+                repr(prepared_text),
             )
 
             sent = self.game_chat_sender.send(
@@ -296,18 +356,15 @@ class ExilingoApp:
             )
 
             if not sent:
-                print("[MAIN] Не удалось отправить исходящее сообщение в игру.")
-
+                print(
+                    "[MAIN] OUTGOING FAILED: GameChatSender вернул False."
+                )
             else:
-                print("[MAIN] Исходящее сообщение передано игре.")
+                print(
+                    "[MAIN] OUTGOING OK: сообщение передано GameChatSender."
+                )
 
-            # ------------------------------------------------
-            # НИЧЕГО НЕ ДОБАВЛЯЕМ В OVERLAY.
-            #
-            # Сообщение должно появиться там только после
-            # возврата из LatestClient.txt.
-            # ------------------------------------------------
-
+            # Никогда не рисуем outgoing напрямую.
             return
 
         # ---------------------------------------------------
@@ -318,6 +375,12 @@ class ExilingoApp:
 
         if context.guild_tag:
             sender = f"<{context.guild_tag}> {sender}"
+
+        print(
+            "[MAIN] INCOMING -> Overlay.add_message():",
+            f"sender={sender!r}",
+            f"text={context.display_text!r}",
+        )
 
         self.overlay.add_message(
             channel_prefix=context.channel_symbol,
@@ -333,56 +396,34 @@ class ExilingoApp:
         context: MessageContext,
         error: str,
     ):
-        """
-        Обрабатывает ситуацию, когда все провайдеры
-        перевода завершились ошибкой.
-
-        Incoming:
-            оригинальное сообщение показывается в Overlay.
-
-        Outgoing:
-            оригинальное сообщение отправляется в игру.
-
-        ВАЖНО:
-
-            Outgoing также НЕ добавляется напрямую
-            в Overlay.
-
-        Если игра успешно отправит сообщение, оно позже
-        вернётся через LatestClient.txt и будет обработано
-        обычным incoming pipeline.
-        """
+        """Обрабатывает ситуацию, когда все провайдеры перевода завершились ошибкой."""
 
         print(
             "[MAIN] Перевод не выполнен:",
-            context.original_text,
+            repr(context.original_text),
             "|",
             error,
+            f"direction={context.direction!r}",
         )
 
-        # ---------------------------------------------------
-        # Определяем outgoing
-        # ---------------------------------------------------
-
-        is_outgoing = context.direction is not None and str(
-            context.direction
-        ).strip().lower() in {
-            "outgoing",
-            "out",
-            "send",
-            "sent",
-            "to",
-            "кому",
-        }
-
-        # ---------------------------------------------------
-        # Outgoing
-        # ---------------------------------------------------
+        is_outgoing = (
+            context.direction is not None
+            and str(context.direction).strip().lower()
+            in {
+                "outgoing",
+                "out",
+                "send",
+                "sent",
+                "to",
+                "кому",
+            }
+        )
 
         if is_outgoing:
+
             print(
-                "[MAIN] Отправка оригинального исходящего сообщения в игру:",
-                context.original_text,
+                "[MAIN] OUTGOING FALLBACK -> GameChatSender.send():",
+                repr(context.original_text),
             )
 
             sent = self.game_chat_sender.send(
@@ -390,20 +431,16 @@ class ExilingoApp:
             )
 
             if not sent:
-                print("[MAIN] Не удалось отправить исходное сообщение в игру.")
-
+                print(
+                    "[MAIN] OUTGOING FALLBACK FAILED."
+                )
             else:
-                print("[MAIN] Исходное сообщение передано игре.")
+                print(
+                    "[MAIN] OUTGOING FALLBACK OK."
+                )
 
-            # ------------------------------------------------
-            # НИЧЕГО НЕ ДОБАВЛЯЕМ В OVERLAY.
-            # ------------------------------------------------
-
+            # Не рисуем outgoing напрямую.
             return
-
-        # ---------------------------------------------------
-        # Incoming
-        # ---------------------------------------------------
 
         sender = context.sender
 
@@ -445,6 +482,11 @@ class ExilingoApp:
 
         self.log_reader.stop()
         self.translation_manager.stop()
+
+        try:
+            self.outgoing_hotkey_listener.stop()
+        except Exception:
+            pass
 
         sys.exit(ret)
 
