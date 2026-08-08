@@ -10,6 +10,7 @@ except ImportError:
 
 from providers.base import BaseTranslator
 
+from .logger import get_logger
 from .models import MessageContext
 from .provider_registry import ProviderRegistry
 from .translation_router import TranslationRouter
@@ -37,15 +38,19 @@ class TranslationManager(QObject):
         self._queue: queue.Queue[Optional[MessageContext]] = queue.Queue()
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self.logger = get_logger("TranslationManager")
 
     def start(self):
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._worker_loop,
-                                         daemon=True,
-                                         name="TranslationWorker")
+        self._thread = threading.Thread(
+            target=self._worker_loop,
+            daemon=True,
+            name="TranslationWorker",
+        )
         self._thread.start()
+        self.logger.info("Translation worker started.")
         self.worker_started.emit()
 
     def stop(self):
@@ -55,10 +60,18 @@ class TranslationManager(QObject):
         self._queue.put(None)
         if self._thread is not None:
             self._thread.join(timeout=2)
+        self.logger.info("Translation worker stopped.")
         self.worker_stopped.emit()
 
     def enqueue(self, context: MessageContext):
-        print(f"[TranslationManager] enqueue: {context.original_text}")
+        self.logger.debug(
+            "enqueue: direction=%r channel=%r sender=%r text=%r queue_before=%d",
+            context.direction,
+            context.channel,
+            context.sender,
+            context.original_text,
+            self._queue.qsize(),
+        )
         self._queue.put(context)
         self.queue_size_changed.emit(self._queue.qsize())
 
@@ -70,20 +83,58 @@ class TranslationManager(QObject):
             context = self._queue.get()
             if context is None:
                 break
+
             self.queue_size_changed.emit(self._queue.qsize())
+            started_at = time.perf_counter()
+
             try:
                 self._process_context(context)
-                print(f"[TranslationManager] translated: {context.original_text} -> {context.display_text}")
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+
+                self.logger.info(
+                    "translation completed: provider=%r direction=%r "
+                    "source=%r target=%r elapsed_ms=%.1f original=%r result=%r",
+                    context.provider,
+                    context.direction,
+                    context.source_language,
+                    context.target_language,
+                    elapsed_ms,
+                    context.original_text,
+                    context.display_text,
+                )
+
                 self.translation_finished.emit(context)
+
             except Exception as e:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
                 context.translation_success = False
                 context.error = str(e)
-                print("[TranslationManager] ERROR:", e)
+
+                self.logger.error(
+                    "translation failed: direction=%r elapsed_ms=%.1f "
+                    "original=%r error=%r",
+                    context.direction,
+                    elapsed_ms,
+                    context.original_text,
+                    str(e),
+                    exc_info=True,
+                )
                 self.translation_failed.emit(context, str(e))
 
     def _process_context(self, context: MessageContext):
         decision = self.router.resolve(context)
         is_outgoing = decision.direction == "outgoing"
+
+        self.logger.debug(
+            "routing decision: direction=%r providers=%r source=%r target=%r "
+            "channel=%r sender=%r",
+            decision.direction,
+            decision.providers,
+            decision.source_language,
+            decision.target_language,
+            context.channel,
+            context.sender,
+        )
 
         text = context.original_text.strip()
         prefix = ""
@@ -101,14 +152,14 @@ class TranslationManager(QObject):
                 whisper_target, text = self._split_whisper_target(text)
                 context.metadata["whisper_target"] = whisper_target
                 if whisper_target:
-                    print(
-                        "[TranslationManager] whisper target:",
-                        repr(whisper_target),
+                    self.logger.debug(
+                        "whisper target extracted: %r",
+                        whisper_target,
                     )
 
             context.metadata["outgoing_prefix"] = prefix
             if prefix:
-                print("[TranslationManager] outgoing prefix:", repr(prefix))
+                self.logger.debug("outgoing prefix extracted: %r", prefix)
 
         normalized = self._normalize(text)
         context.normalized_text = normalized
@@ -116,37 +167,71 @@ class TranslationManager(QObject):
         if not normalized:
             raise RuntimeError("Пустое сообщение для перевода")
 
-        expected_source_language = decision.source_language or ("ru" if is_outgoing else "en")
-        expected_target_language = decision.target_language or ("en" if is_outgoing else "ru")
+        expected_source_language = (
+            decision.source_language or ("ru" if is_outgoing else "en")
+        )
+        expected_target_language = (
+            decision.target_language or ("en" if is_outgoing else "ru")
+        )
 
         detected_language = self._detect_script_language(normalized)
         context.source_language = detected_language or expected_source_language
         context.target_language = expected_target_language
 
+        self.logger.debug(
+            "language analysis: detected=%r expected_source=%r target=%r text=%r",
+            detected_language,
+            expected_source_language,
+            expected_target_language,
+            normalized,
+        )
+
         if self._should_skip_translation(detected_language, expected_source_language):
             translated = normalized
             context.translated_text = translated
             context.display_text = self._build_outgoing_display(
-                translated, prefix, whisper_target
+                translated,
+                prefix,
+                whisper_target,
             )
             context.translation_success = False
             context.provider = None
             context.from_cache = False
             context.error = None
-            print(
-                "[TranslationManager] skip translation: "
-                f"{normalized} (detected={detected_language}, "
-                f"expected={expected_source_language})"
+
+            self.logger.info(
+                "translation skipped: detected=%r expected_source=%r text=%r",
+                detected_language,
+                expected_source_language,
+                normalized,
             )
             return
 
         errors = []
 
         for provider_id in decision.providers:
+            provider_started = time.perf_counter()
+
             try:
                 if not self.registry.is_available(provider_id):
-                    errors.append(f"{provider_id}: недоступен или выключен")
+                    reason = "недоступен или выключен"
+                    errors.append(f"{provider_id}: {reason}")
+                    self.logger.warning(
+                        "provider skipped: provider=%r reason=%s",
+                        provider_id,
+                        reason,
+                    )
                     continue
+
+                self.logger.info(
+                    "provider attempt: provider=%r direction=%r "
+                    "language=%s->%s text=%r",
+                    provider_id,
+                    context.direction,
+                    expected_source_language,
+                    expected_target_language,
+                    normalized,
+                )
 
                 translator = self.registry.create(
                     provider_id,
@@ -154,71 +239,118 @@ class TranslationManager(QObject):
                     target_language=expected_target_language,
                 )
 
-                print(
-                    "[TranslationManager] trying provider:",
-                    provider_id,
-                    f"({expected_source_language}->{expected_target_language})",
-                )
-
                 translated = translator.translate(normalized)
                 if translated is None:
                     raise RuntimeError("Провайдер вернул None")
+
                 translated = str(translated).strip()
                 if not translated:
                     raise RuntimeError("Провайдер вернул пустой перевод")
 
+                provider_elapsed_ms = (time.perf_counter() - provider_started) * 1000
+
                 context.translated_text = translated
                 context.display_text = self._build_outgoing_display(
-                    translated, prefix, whisper_target
+                    translated,
+                    prefix,
+                    whisper_target,
                 )
                 context.translation_success = True
                 context.provider = translator.name
                 context.from_cache = False
                 context.error = None
                 context.source_language = getattr(
-                    translator, "source_language",
+                    translator,
+                    "source_language",
                     getattr(translator, "source_lang", expected_source_language),
                 )
                 context.target_language = getattr(
-                    translator, "target_language",
+                    translator,
+                    "target_language",
                     getattr(translator, "target_lang", expected_target_language),
+                )
+
+                self.logger.info(
+                    "provider success: provider=%r name=%r elapsed_ms=%.1f "
+                    "result=%r",
+                    provider_id,
+                    translator.name,
+                    provider_elapsed_ms,
+                    translated,
                 )
                 return
 
             except Exception as e:
+                provider_elapsed_ms = (time.perf_counter() - provider_started) * 1000
                 error_text = str(e)
                 errors.append(f"{provider_id}: {error_text}")
-                print(f"[TranslationManager] provider '{provider_id}' failed: {error_text}")
+
+                self.logger.warning(
+                    "provider failed: provider=%r elapsed_ms=%.1f error=%r",
+                    provider_id,
+                    provider_elapsed_ms,
+                    error_text,
+                    exc_info=True,
+                )
 
         if self.translator is not None:
+            legacy_started = time.perf_counter()
+
             try:
-                print("[TranslationManager] trying legacy translator fallback")
+                self.logger.info(
+                    "legacy provider attempt: direction=%r text=%r",
+                    context.direction,
+                    normalized,
+                )
+
                 translated = self.translator.translate(normalized)
                 if translated is None:
                     raise RuntimeError("Провайдер вернул None")
+
                 translated = str(translated).strip()
                 if not translated:
                     raise RuntimeError("Провайдер вернул пустой перевод")
 
+                legacy_elapsed_ms = (time.perf_counter() - legacy_started) * 1000
+
                 context.translated_text = translated
                 context.display_text = self._build_outgoing_display(
-                    translated, prefix, whisper_target
+                    translated,
+                    prefix,
+                    whisper_target,
                 )
                 context.translation_success = True
                 context.provider = self.translator.name
                 context.from_cache = False
                 context.error = None
                 context.source_language = getattr(
-                    self.translator, "source_language",
+                    self.translator,
+                    "source_language",
                     getattr(self.translator, "source_lang", expected_source_language),
                 )
                 context.target_language = getattr(
-                    self.translator, "target_language",
+                    self.translator,
+                    "target_language",
                     getattr(self.translator, "target_lang", expected_target_language),
                 )
+
+                self.logger.info(
+                    "legacy provider success: provider=%r elapsed_ms=%.1f result=%r",
+                    self.translator.name,
+                    legacy_elapsed_ms,
+                    translated,
+                )
                 return
+
             except Exception as e:
+                legacy_elapsed_ms = (time.perf_counter() - legacy_started) * 1000
                 errors.append(f"legacy: {e}")
+                self.logger.warning(
+                    "legacy provider failed: elapsed_ms=%.1f error=%r",
+                    legacy_elapsed_ms,
+                    str(e),
+                    exc_info=True,
+                )
 
         raise RuntimeError(
             "Все провайдеры маршрута завершились ошибкой: " + "; ".join(errors)
