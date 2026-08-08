@@ -5,6 +5,7 @@ from typing import Callable, Optional
 
 from providers.base import BaseTranslator
 from providers.google_translate import GoogleTranslateTranslator
+from providers.gemini import GeminiTranslator
 
 from .config_manager import config
 
@@ -59,7 +60,7 @@ class ProviderRegistry:
             },
             "gemini": {
                 "name": "Gemini",
-                "factory": None,
+                "factory": self._create_gemini,
                 "requires_api_key": True,
             },
             "groq": {
@@ -87,10 +88,6 @@ class ProviderRegistry:
         """
         Возвращает True, если провайдер имеет минимально
         необходимые настройки для создания.
-
-        Пока реализован только Google Translate.
-        Для будущих AI-провайдеров configured станет True
-        после добавления соответствующих фабрик.
         """
         provider = self._providers.get(provider_id)
 
@@ -141,6 +138,33 @@ class ProviderRegistry:
             target_language=target_language,
         )
 
+    # ------------------------------------------------------
+
+    def _create_gemini(
+        self,
+        source_language: Optional[str] = None,
+        target_language: Optional[str] = None,
+    ) -> BaseTranslator:
+        """Создает Gemini с текущими настройками config.json."""
+        provider = config.get("providers", "gemini") or {}
+
+        api_key = str(provider.get("api_key", "")).strip()
+        model = str(provider.get("model", "gemini-3.5-flash-lite")).strip()
+        system_prompt = str(provider.get("system_prompt", "")).strip()
+
+        if source_language is None:
+            source_language = provider.get("source_language", "en")
+        if target_language is None:
+            target_language = provider.get("target_language", "ru")
+
+        return GeminiTranslator(
+            api_key=api_key,
+            model=model or "gemini-3.5-flash-lite",
+            system_prompt=system_prompt,
+            source_language=str(source_language),
+            target_language=str(target_language),
+        )
+
     # ======================================================
     # Получить экземпляр переводчика
     # ======================================================
@@ -186,13 +210,10 @@ class ProviderRegistry:
                 f"Провайдер '{provider_id}' пока не реализован."
             )
 
-        if provider_id == "google":
-            return factory(
-                source_language=source_language,
-                target_language=target_language,
-            )
-
-        return factory()
+        return factory(
+            source_language=source_language,
+            target_language=target_language,
+        )
 
     # ======================================================
     # Получить информацию
