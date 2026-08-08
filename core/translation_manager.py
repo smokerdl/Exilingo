@@ -31,10 +31,12 @@ class TranslationManager(QObject):
             ↓
         первый успешно отработавший провайдер
             ↓
-        Overlay
+        Overlay / GameChatSender
 
-    Если первый провайдер маршрута недоступен или завершился
-    ошибкой, менеджер пробует следующий провайдер.
+    Для исходящих сообщений игровой chat-prefix (#, %, @, $, &)
+    отделяется до перевода и возвращается после перевода.
+    Поэтому специальный символ никогда не отправляется
+    внешнему переводчику.
     """
 
     translation_finished = Signal(MessageContext)
@@ -48,6 +50,8 @@ class TranslationManager(QObject):
     # Сообщения с меньшим количеством букв не классифицируем.
     MIN_LANGUAGE_LETTERS = 3
 
+    OUTGOING_PREFIXES = {"#", "%", "@", "$", "&"}
+
     def __init__(
         self,
         translator: Optional[BaseTranslator] = None,
@@ -56,21 +60,8 @@ class TranslationManager(QObject):
     ):
         super().__init__()
 
-        # --------------------------------------------------
-        # Новый routing-based pipeline
-        # --------------------------------------------------
-
         self.registry = registry or ProviderRegistry()
         self.router = router or TranslationRouter()
-
-        # --------------------------------------------------
-        # Совместимость со старым кодом
-        # --------------------------------------------------
-        #
-        # Если передан translator, он используется только
-        # как fallback старого API. Основной main.py теперь
-        # работает через registry + router.
-        #
         self.translator = translator
 
         self._queue: queue.Queue[Optional[MessageContext]] = queue.Queue()
@@ -115,8 +106,7 @@ class TranslationManager(QObject):
 
     def enqueue(self, context: MessageContext):
         print(
-            f"[TranslationManager] enqueue: "
-            f"{context.original_text}"
+            f"[TranslationManager] enqueue: {context.original_text}"
         )
 
         self._queue.put(context)
@@ -171,25 +161,47 @@ class TranslationManager(QObject):
         context: MessageContext,
     ):
         # --------------------------------------------------
-        # Нормализация
-        # --------------------------------------------------
-
-        text = context.original_text.strip()
-        normalized = self._normalize(text)
-        context.normalized_text = normalized
-
-        # --------------------------------------------------
-        # Routing
+        # Определяем направление до обработки текста.
         # --------------------------------------------------
 
         decision = self.router.resolve(context)
+        is_outgoing = decision.direction == "outgoing"
+
+        # --------------------------------------------------
+        # Для outgoing prefix является управляющей частью
+        # игрового чата, а не частью текста для перевода.
+        # --------------------------------------------------
+
+        text = context.original_text.strip()
+        prefix = ""
+
+        if is_outgoing:
+            prefix, text = self._split_outgoing_prefix(text)
+
+            context.metadata["outgoing_prefix"] = prefix
+
+            if prefix:
+                print(
+                    "[TranslationManager] outgoing prefix:",
+                    repr(prefix),
+                )
+
+        # --------------------------------------------------
+        # Нормализация только текста сообщения.
+        # --------------------------------------------------
+
+        normalized = self._normalize(text)
+        context.normalized_text = normalized
+
+        if not normalized:
+            raise RuntimeError("Пустое сообщение для перевода")
 
         expected_source_language = decision.source_language or (
-            "ru" if decision.direction == "outgoing" else "en"
+            "ru" if is_outgoing else "en"
         )
 
         expected_target_language = decision.target_language or (
-            "en" if decision.direction == "outgoing" else "ru"
+            "en" if is_outgoing else "ru"
         )
 
         # --------------------------------------------------
@@ -204,13 +216,18 @@ class TranslationManager(QObject):
         context.target_language = expected_target_language
 
         # Если сообщение уже на целевом языке — не отправляем
-        # его ни одному внешнему провайдеру.
+        # его внешнему провайдеру.
         if self._should_skip_translation(
             detected_language,
             expected_source_language,
         ):
-            context.translated_text = normalized
-            context.display_text = normalized
+            translated = normalized
+
+            context.translated_text = translated
+            context.display_text = self._restore_outgoing_prefix(
+                translated,
+                prefix,
+            )
             context.translation_success = False
             context.provider = None
             context.from_cache = False
@@ -263,18 +280,16 @@ class TranslationManager(QObject):
                 if not translated:
                     raise RuntimeError("Провайдер вернул пустой перевод")
 
-                # ------------------------------------------
-                # Успех
-                # ------------------------------------------
-
                 context.translated_text = translated
-                context.display_text = translated
+                context.display_text = self._restore_outgoing_prefix(
+                    translated,
+                    prefix,
+                )
                 context.translation_success = True
                 context.provider = translator.name
                 context.from_cache = False
                 context.error = None
 
-                # Фактическое направление провайдера.
                 context.source_language = getattr(
                     translator,
                     "source_language",
@@ -330,7 +345,10 @@ class TranslationManager(QObject):
                     raise RuntimeError("Провайдер вернул пустой перевод")
 
                 context.translated_text = translated
-                context.display_text = translated
+                context.display_text = self._restore_outgoing_prefix(
+                    translated,
+                    prefix,
+                )
                 context.translation_success = True
                 context.provider = self.translator.name
                 context.from_cache = False
@@ -363,14 +381,45 @@ class TranslationManager(QObject):
                     f"legacy: {e}"
                 )
 
-        # --------------------------------------------------
-        # Все провайдеры закончились
-        # --------------------------------------------------
-
         raise RuntimeError(
             "Все провайдеры маршрута завершились ошибкой: "
             + "; ".join(errors)
         )
+
+    # ======================================================
+    # Outgoing prefix
+    # ======================================================
+
+    @classmethod
+    def _split_outgoing_prefix(
+        cls,
+        text: str,
+    ) -> tuple[str, str]:
+        """
+        Отделяет игровой prefix от текста исходящего сообщения.
+
+        Например:
+            "$WTB Mageblood" -> ("$", "WTB Mageblood")
+            "#hello"          -> ("#", "hello")
+            "hello"           -> ("", "hello")
+
+        Только первый символ имеет специальное значение.
+        Остальной текст передается переводчику как есть.
+        """
+        if text and text[0] in cls.OUTGOING_PREFIXES:
+            return text[0], text[1:].lstrip()
+
+        return "", text
+
+    @staticmethod
+    def _restore_outgoing_prefix(
+        translated: str,
+        prefix: str,
+    ) -> str:
+        if not prefix:
+            return translated
+
+        return prefix + translated.lstrip()
 
     # ======================================================
     # Язык
@@ -522,6 +571,8 @@ if __name__ == "__main__":
         ("To", "Hello everyone"),
         ("To", "Всем привет"),
         ("To", "Привет guys, WTB mirror"),
+        ("To", "#Куплю Mageblood"),
+        ("To", "$WTB Mageblood"),
     ]
 
     for direction, text in test_messages:
