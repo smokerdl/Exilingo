@@ -50,27 +50,20 @@ class ExilingoApp:
 
         self.overlay = ChatOverlay()
 
-        self.overlay.close_requested.connect(
-            self.close_application
-        )
+        self.overlay.close_requested.connect(self.close_application)
 
-        self.overlay.settings_requested.connect(
-            self.open_settings
-        )
+        self.overlay.settings_requested.connect(self.open_settings)
 
         # Исходящие сообщения из поля ввода Overlay.
-        self.overlay.send_message_requested.connect(
-            self.on_outgoing_message
-        )
+        self.overlay.send_message_requested.connect(self.on_outgoing_message)
 
         # ---------------------------------------------------
         # Hotkey
         # ---------------------------------------------------
 
         self.hotkey_listener = GlobalHotkeyListener()
-        self.hotkey_listener.toggle_requested.connect(
-            self.overlay.toggle_mode
-        )
+
+        self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
 
         # ---------------------------------------------------
         # Provider Registry + Router
@@ -88,13 +81,9 @@ class ExilingoApp:
             router=self.translation_router,
         )
 
-        self.translation_manager.translation_finished.connect(
-            self.on_message_ready
-        )
+        self.translation_manager.translation_finished.connect(self.on_message_ready)
 
-        self.translation_manager.translation_failed.connect(
-            self.on_translation_failed
-        )
+        self.translation_manager.translation_failed.connect(self.on_translation_failed)
 
         self.translation_manager.start()
 
@@ -121,22 +110,16 @@ class ExilingoApp:
 
             config.log_path = log_path
 
-        print(
-            f"[Main] Используется путь к логу: {log_path}"
-        )
+        print(f"[Main] Используется путь к логу: {log_path}")
 
         self.log_reader = LogReaderThread(
             log_filepath=log_path,
             read_from_end=True,
         )
 
-        self.log_reader.new_chat_message.connect(
-            self.on_new_chat_message
-        )
+        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
 
-        self.log_reader.status_changed.connect(
-            self.on_log_status
-        )
+        self.log_reader.status_changed.connect(self.on_log_status)
 
     # =======================================================
     # Верхняя панель Overlay
@@ -146,6 +129,7 @@ class ExilingoApp:
         """Завершает работу программы."""
 
         print("[MAIN] Завершение работы...")
+
         self.app.quit()
 
     # -------------------------------------------------------
@@ -191,7 +175,7 @@ class ExilingoApp:
         text: str,
     ):
         """
-        Получает готовое исходящее сообщение из Overlay.
+        Получает сообщение из поля ввода Overlay.
 
         Overlay уже добавляет игровой prefix, если пользователь
         не указал его самостоятельно.
@@ -205,8 +189,8 @@ class ExilingoApp:
             "$hello"         -> Trade
             "&hello"         -> Guild
 
-        Далее сообщение проходит тот же TranslationManager,
-        но с direction="outgoing".
+        Далее сообщение проходит через TranslationManager
+        с direction="outgoing".
         """
 
         text = str(text or "").strip()
@@ -215,6 +199,7 @@ class ExilingoApp:
             return
 
         prefix = text[0] if text[0] in OUTGOING_CHANNELS else ""
+
         channel, channel_symbol = OUTGOING_CHANNELS.get(
             prefix,
             ("local", ""),
@@ -234,9 +219,7 @@ class ExilingoApp:
             f"channel={channel}",
         )
 
-        self.translation_manager.enqueue(
-            MessageContext.from_chat_message(msg)
-        )
+        self.translation_manager.enqueue(MessageContext.from_chat_message(msg))
 
     # =======================================================
     # Translation Pipeline
@@ -249,10 +232,31 @@ class ExilingoApp:
         """
         Обрабатывает успешный результат TranslationManager.
 
-        Для incoming сообщение только попадает в Overlay.
-        Для outgoing готовый текст сначала отправляется в
-        игровой чат через GameChatSender, затем отображается
-        в Overlay.
+        Incoming:
+            сообщение отображается в Overlay.
+
+        Outgoing:
+            перевод отправляется в игровой чат через
+            GameChatSender.
+
+        ВАЖНО:
+
+            Исходящее сообщение НЕ отображается напрямую
+            в Overlay.
+
+        После отправки в игру Path of Exile сама записывает
+        сообщение в LatestClient.txt.
+
+        Затем LogReader -> LogParser -> TranslationManager
+        обрабатывают его как обычное входящее сообщение.
+
+        Благодаря этому в Overlay появляется именно:
+
+            Вася: Привет
+
+        а не искусственное:
+
+            You: Hello
         """
 
         print(
@@ -260,46 +264,60 @@ class ExilingoApp:
             context.display_text,
         )
 
-        sender = context.sender
-
-        if context.guild_tag:
-            sender = f"<{context.guild_tag}> {sender}"
-
         # ---------------------------------------------------
-        # Outgoing
+        # Определяем outgoing
         # ---------------------------------------------------
 
-        if context.direction is not None and str(context.direction).strip().lower() in {
+        is_outgoing = context.direction is not None and str(
+            context.direction
+        ).strip().lower() in {
             "outgoing",
             "out",
             "send",
             "sent",
             "to",
             "кому",
-        }:
+        }
+
+        # ---------------------------------------------------
+        # Outgoing
+        # ---------------------------------------------------
+
+        if is_outgoing:
             prepared_text = context.display_text or context.original_text
+
+            print(
+                "[MAIN] Отправка исходящего сообщения в игру:",
+                prepared_text,
+            )
 
             sent = self.game_chat_sender.send(
                 prepared_text,
             )
 
             if not sent:
-                print(
-                    "[MAIN] Не удалось отправить исходящее сообщение в игру."
-                )
+                print("[MAIN] Не удалось отправить исходящее сообщение в игру.")
 
-            self.overlay.add_message(
-                channel_prefix=context.channel_symbol,
-                sender=sender,
-                text=prepared_text,
-                is_translated=context.translation_success,
-            )
+            else:
+                print("[MAIN] Исходящее сообщение передано игре.")
+
+            # ------------------------------------------------
+            # НИЧЕГО НЕ ДОБАВЛЯЕМ В OVERLAY.
+            #
+            # Сообщение должно появиться там только после
+            # возврата из LatestClient.txt.
+            # ------------------------------------------------
 
             return
 
         # ---------------------------------------------------
         # Incoming
         # ---------------------------------------------------
+
+        sender = context.sender
+
+        if context.guild_tag:
+            sender = f"<{context.guild_tag}> {sender}"
 
         self.overlay.add_message(
             channel_prefix=context.channel_symbol,
@@ -316,12 +334,23 @@ class ExilingoApp:
         error: str,
     ):
         """
-        Если вся очередь провайдеров закончилась ошибкой,
-        показываем пользователю исходный текст.
+        Обрабатывает ситуацию, когда все провайдеры
+        перевода завершились ошибкой.
 
-        Для outgoing дополнительно пытаемся отправить
-        оригинальное сообщение в игру, чтобы ошибка переводчика
-        не приводила к потере пользовательского сообщения.
+        Incoming:
+            оригинальное сообщение показывается в Overlay.
+
+        Outgoing:
+            оригинальное сообщение отправляется в игру.
+
+        ВАЖНО:
+
+            Outgoing также НЕ добавляется напрямую
+            в Overlay.
+
+        Если игра успешно отправит сообщение, оно позже
+        вернётся через LatestClient.txt и будет обработано
+        обычным incoming pipeline.
         """
 
         print(
@@ -331,36 +360,55 @@ class ExilingoApp:
             error,
         )
 
-        sender = context.sender
+        # ---------------------------------------------------
+        # Определяем outgoing
+        # ---------------------------------------------------
 
-        if context.guild_tag:
-            sender = f"<{context.guild_tag}> {sender}"
-
-        if context.direction is not None and str(context.direction).strip().lower() in {
+        is_outgoing = context.direction is not None and str(
+            context.direction
+        ).strip().lower() in {
             "outgoing",
             "out",
             "send",
             "sent",
             "to",
             "кому",
-        }:
+        }
+
+        # ---------------------------------------------------
+        # Outgoing
+        # ---------------------------------------------------
+
+        if is_outgoing:
+            print(
+                "[MAIN] Отправка оригинального исходящего сообщения в игру:",
+                context.original_text,
+            )
+
             sent = self.game_chat_sender.send(
                 context.original_text,
             )
 
             if not sent:
-                print(
-                    "[MAIN] Не удалось отправить исходное сообщение в игру."
-                )
+                print("[MAIN] Не удалось отправить исходное сообщение в игру.")
 
-            self.overlay.add_message(
-                channel_prefix=context.channel_symbol,
-                sender=sender,
-                text=context.original_text,
-                is_translated=False,
-            )
+            else:
+                print("[MAIN] Исходное сообщение передано игре.")
+
+            # ------------------------------------------------
+            # НИЧЕГО НЕ ДОБАВЛЯЕМ В OVERLAY.
+            # ------------------------------------------------
 
             return
+
+        # ---------------------------------------------------
+        # Incoming
+        # ---------------------------------------------------
+
+        sender = context.sender
+
+        if context.guild_tag:
+            sender = f"<{context.guild_tag}> {sender}"
 
         self.overlay.add_message(
             channel_prefix=context.channel_symbol,
@@ -375,15 +423,15 @@ class ExilingoApp:
         self,
         status: str,
     ):
-        print(
-            f"[LogReader] {status}"
-        )
+
+        print(f"[LogReader] {status}")
 
     # =======================================================
 
     def run(self):
 
         self.log_reader.start()
+
         self.overlay.show()
 
         self.overlay.add_message(
@@ -403,4 +451,5 @@ class ExilingoApp:
 
 if __name__ == "__main__":
     app = ExilingoApp()
+
     app.run()
