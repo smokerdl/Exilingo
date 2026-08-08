@@ -12,6 +12,7 @@ from core.config_manager import config
 # ============================================================
 
 user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
 
 INPUT_MOUSE = 0
 INPUT_KEYBOARD = 1
@@ -31,36 +32,85 @@ VK_RETURN = 0x0D
 
 class GameChatSender:
     """
-    Отвечает только за физическую отправку готового сообщения
-    в игровой чат Path of Exile.
+    Физическая отправка готового сообщения в игровой чат Path of Exile.
 
-    Логика переводов, каналов и префиксов находится выше.
+    Pipeline:
 
-    Пример:
+        координата
+          ↓
+        mouse move
+          ↓
+        left click
+          ↓
+        Clipboard
+          ↓
+        Ctrl+V
+          ↓
+        Enter
 
-        sender.send("#hello everyone")
-
-    В игровом чате будет введено:
-
-        #hello everyone
-
-    Класс:
-
-    1. получает координаты точки игрового чата;
-    2. перемещает курсор;
-    3. кликает по полю чата;
-    4. помещает текст в Clipboard;
-    5. выполняет Ctrl+V;
-    6. нажимает Enter.
+    Этот класс намеренно не знает ничего о переводах и каналах.
+    Он получает уже полностью подготовленный текст.
     """
 
-    # --------------------------------------------------------
-    # Настройки по умолчанию
-    # --------------------------------------------------------
+    DEFAULT_CLICK_DELAY = 0.10
+    DEFAULT_PASTE_DELAY = 0.10
+    DEFAULT_ENTER_DELAY = 0.10
 
-    DEFAULT_CLICK_DELAY = 0.05
-    DEFAULT_PASTE_DELAY = 0.05
-    DEFAULT_ENTER_DELAY = 0.05
+    # ========================================================
+    # Debug
+    # ========================================================
+
+    @staticmethod
+    def _debug(message: str):
+        """Печатает подробную информацию о стадии отправки."""
+        print(f"[GameChatSender][DEBUG] {message}", flush=True)
+
+    @staticmethod
+    def _window_info(hwnd: int) -> str:
+        """Возвращает краткую информацию о Windows-окне."""
+        if not hwnd:
+            return "HWND=0"
+
+        title_buffer = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(
+            hwnd,
+            title_buffer,
+            len(title_buffer),
+        )
+
+        class_buffer = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(
+            hwnd,
+            class_buffer,
+            len(class_buffer),
+        )
+
+        return (
+            f"HWND=0x{int(hwnd):X}, "
+            f"class='{class_buffer.value}', "
+            f"title='{title_buffer.value}'"
+        )
+
+    @classmethod
+    def _debug_foreground_window(cls, stage: str):
+        hwnd = user32.GetForegroundWindow()
+        cls._debug(
+            f"{stage}: foreground -> {cls._window_info(hwnd)}"
+        )
+
+    @classmethod
+    def _debug_window_at_point(cls, x: int, y: int):
+        point = ctypes.wintypes.POINT(
+            int(x),
+            int(y),
+        )
+
+        hwnd = user32.WindowFromPoint(point)
+
+        cls._debug(
+            f"WindowFromPoint({x}, {y}) -> "
+            f"{cls._window_info(hwnd)}"
+        )
 
     # ========================================================
     # Конфигурация
@@ -68,21 +118,6 @@ class GameChatSender:
 
     @staticmethod
     def get_input_point() -> Optional[Tuple[int, int]]:
-        """
-        Возвращает сохраненную точку активации игрового чата.
-
-        Формат config.json:
-
-            "game_chat": {
-                "input_point": {
-                    "x": 420,
-                    "y": 970
-                }
-            }
-
-        Если координаты не настроены, возвращает None.
-        """
-
         point = config.get(
             "game_chat",
             "input_point",
@@ -95,23 +130,20 @@ class GameChatSender:
         try:
             x = int(point["x"])
             y = int(point["y"])
-
         except (KeyError, TypeError, ValueError):
             return None
 
-        return x, y
+        # 0,0 означает "не откалибровано".
+        if x == 0 and y == 0:
+            return None
 
-    # --------------------------------------------------------
+        return x, y
 
     @staticmethod
     def set_input_point(
         x: int,
         y: int,
     ):
-        """
-        Сохраняет координату активации игрового чата.
-        """
-
         config.set(
             "game_chat",
             "input_point",
@@ -131,115 +163,92 @@ class GameChatSender:
         *,
         point: Optional[Tuple[int, int]] = None,
     ) -> bool:
-        """
-        Отправляет готовый текст в игровой чат.
+        """Отправляет готовый текст в игровой чат."""
 
-        Parameters
-        ----------
-        text:
-            Полностью готовое сообщение.
-
-            Например:
-
-                "#hello"
-                "$WTB Mageblood"
-                "%hello party"
-                "@PlayerName hello"
-
-        point:
-            Необязательная координата поля чата.
-
-            Если не указана, используется координата
-            из config.json.
-
-        Returns
-        -------
-        bool
-            True  — сообщение отправлено.
-            False — отправка не выполнена.
-        """
+        self._debug("========== BEGIN SEND ==========")
+        self._debug(f"raw text={text!r}")
 
         if not text:
-            print("[GameChatSender] Пустое сообщение.")
-
+            self._debug("ABORT: пустое сообщение")
             return False
 
         text = text.strip()
 
         if not text:
-            print("[GameChatSender] Сообщение состоит только из пробелов.")
-
+            self._debug("ABORT: сообщение состоит только из пробелов")
             return False
-
-        # ----------------------------------------------------
-        # Координата
-        # ----------------------------------------------------
 
         if point is None:
             point = self.get_input_point()
 
-        if point is None:
-            print("[GameChatSender] Координата игрового чата не настроена.")
+        self._debug(f"input point={point!r}")
 
+        if point is None:
+            self._debug("ABORT: координата игрового чата не настроена")
             return False
 
         x, y = point
 
-        # ----------------------------------------------------
-        # Проверяем координаты
-        # ----------------------------------------------------
-
         screen_width = user32.GetSystemMetrics(0)
         screen_height = user32.GetSystemMetrics(1)
 
-        if not (0 <= x < screen_width and 0 <= y < screen_height):
-            print(f"[GameChatSender] Некорректная координата: ({x}, {y})")
-
-            return False
-
-        # ----------------------------------------------------
-        # Отправка
-        # ----------------------------------------------------
-
-        print(
-            "[GameChatSender] Отправка в игровой чат:",
-            text,
+        self._debug(
+            f"screen={screen_width}x{screen_height}, point=({x},{y})"
         )
 
+        if not (0 <= x < screen_width and 0 <= y < screen_height):
+            self._debug(
+                f"ABORT: некорректная координата ({x}, {y})"
+            )
+            return False
+
+        self._debug_foreground_window("before click")
+        self._debug_window_at_point(x, y)
+
         try:
-            self._click(
-                x,
-                y,
+            self._debug("STAGE 1/5: SetCursorPos")
+            self._move_cursor(x, y)
+
+            cursor = ctypes.wintypes.POINT()
+            user32.GetCursorPos(ctypes.byref(cursor))
+            self._debug(
+                f"cursor after move=({cursor.x},{cursor.y})"
             )
 
-            time.sleep(
-                self.DEFAULT_CLICK_DELAY,
-            )
+            time.sleep(self.DEFAULT_CLICK_DELAY)
 
-            self._paste_text(text)
+            self._debug("STAGE 2/5: left mouse click")
+            self._click_at_current_position()
 
-            time.sleep(
-                self.DEFAULT_PASTE_DELAY,
-            )
+            time.sleep(self.DEFAULT_CLICK_DELAY)
+            self._debug_foreground_window("after click")
 
-            self._press_key(
-                VK_RETURN,
-            )
+            self._debug("STAGE 3/5: prepare Clipboard")
+            self._set_clipboard_text(text)
+            self._debug("Clipboard prepared successfully")
 
-            time.sleep(
-                self.DEFAULT_ENTER_DELAY,
-            )
+            time.sleep(self.DEFAULT_PASTE_DELAY)
 
-            print("[GameChatSender] Сообщение отправлено.")
+            self._debug("STAGE 4/5: Ctrl+V")
+            self._paste()
+
+            time.sleep(self.DEFAULT_PASTE_DELAY)
+
+            self._debug("STAGE 5/5: Enter")
+            self._press_key(VK_RETURN)
+
+            time.sleep(self.DEFAULT_ENTER_DELAY)
+
+            self._debug_foreground_window("after Enter")
+            self._debug("========== SEND COMPLETE ==========")
 
             return True
 
         except Exception as e:
-            print(
-                "[GameChatSender] Ошибка отправки:",
-                e,
+            self._debug(
+                f"SEND FAILED: {type(e).__name__}: {e}"
             )
-
+            self._debug("========== SEND FAILED ==========")
             return False
 
     # ========================================================
@@ -247,24 +256,20 @@ class GameChatSender:
     # ========================================================
 
     @staticmethod
-    def _click(
+    def _move_cursor(
         x: int,
         y: int,
     ):
-        """
-        Перемещает курсор в указанную точку
-        и выполняет левый клик.
-        """
-
         if not user32.SetCursorPos(
             int(x),
             int(y),
         ):
-            raise RuntimeError("Не удалось переместить курсор.")
+            raise RuntimeError("SetCursorPos() не удался.")
 
+    @staticmethod
+    def _click_at_current_position():
         # MOUSEEVENTF_LEFTDOWN = 0x0002
         # MOUSEEVENTF_LEFTUP   = 0x0004
-
         user32.mouse_event(
             0x0002,
             0,
@@ -289,10 +294,6 @@ class GameChatSender:
     def _press_key(
         virtual_key: int,
     ):
-        """
-        Нажимает и отпускает виртуальную клавишу.
-        """
-
         user32.keybd_event(
             virtual_key,
             0,
@@ -318,40 +319,61 @@ class GameChatSender:
         """
         Помещает Unicode-текст в системный Clipboard.
 
-        Используется WinAPI, поэтому дополнительная библиотека
-        для Clipboard не требуется.
+        Важно: для 64-bit Windows явно задаём типы WinAPI
+        указателей. Без этого ctypes может трактовать HANDLE
+        как 32-bit int и обрезать адрес памяти.
         """
 
         CF_UNICODETEXT = 13
         GMEM_MOVEABLE = 0x0002
 
-        # +1 для завершающего \0
-        data = (text + "\0").encode(
-            "utf-16-le",
-        )
+        data = (text + "\0").encode("utf-16-le")
 
-        kernel32 = ctypes.windll.kernel32
+        # -------------------------------
+        # kernel32 prototypes
+        # -------------------------------
 
         kernel32.GlobalAlloc.argtypes = [
             ctypes.c_uint,
             ctypes.c_size_t,
         ]
-
         kernel32.GlobalAlloc.restype = ctypes.c_void_p
 
         kernel32.GlobalLock.argtypes = [
             ctypes.c_void_p,
         ]
-
         kernel32.GlobalLock.restype = ctypes.c_void_p
 
         kernel32.GlobalUnlock.argtypes = [
             ctypes.c_void_p,
         ]
+        kernel32.GlobalUnlock.restype = ctypes.c_bool
 
         kernel32.GlobalFree.argtypes = [
             ctypes.c_void_p,
         ]
+        kernel32.GlobalFree.restype = ctypes.c_void_p
+
+        # -------------------------------
+        # user32 prototypes
+        # -------------------------------
+
+        user32.OpenClipboard.argtypes = [
+            ctypes.c_void_p,
+        ]
+        user32.OpenClipboard.restype = ctypes.c_bool
+
+        user32.EmptyClipboard.argtypes = []
+        user32.EmptyClipboard.restype = ctypes.c_bool
+
+        user32.SetClipboardData.argtypes = [
+            ctypes.c_uint,
+            ctypes.c_void_p,
+        ]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+
+        user32.CloseClipboard.argtypes = []
+        user32.CloseClipboard.restype = ctypes.c_bool
 
         handle = kernel32.GlobalAlloc(
             GMEM_MOVEABLE,
@@ -359,15 +381,19 @@ class GameChatSender:
         )
 
         if not handle:
-            raise RuntimeError("GlobalAlloc() не выделил память.")
-
-        try:
-            pointer = kernel32.GlobalLock(
-                handle,
+            raise RuntimeError(
+                "GlobalAlloc() не выделил память."
             )
 
+        clipboard_opened = False
+
+        try:
+            pointer = kernel32.GlobalLock(handle)
+
             if not pointer:
-                raise RuntimeError("GlobalLock() не удался.")
+                raise RuntimeError(
+                    "GlobalLock() не удался."
+                )
 
             try:
                 ctypes.memmove(
@@ -377,53 +403,47 @@ class GameChatSender:
                 )
 
             finally:
-                kernel32.GlobalUnlock(
-                    handle,
+                kernel32.GlobalUnlock(handle)
+
+            if not user32.OpenClipboard(None):
+                raise RuntimeError(
+                    "OpenClipboard() не удался."
                 )
 
-            if not user32.OpenClipboard(
-                None,
-            ):
-                raise RuntimeError("Не удалось открыть Clipboard.")
+            clipboard_opened = True
 
-            try:
-                if not user32.EmptyClipboard():
-                    raise RuntimeError("Не удалось очистить Clipboard.")
+            if not user32.EmptyClipboard():
+                raise RuntimeError(
+                    "EmptyClipboard() не удался."
+                )
 
-                if not user32.SetClipboardData(
-                    CF_UNICODETEXT,
-                    handle,
-                ):
-                    raise RuntimeError("Не удалось установить Clipboard.")
+            result = user32.SetClipboardData(
+                CF_UNICODETEXT,
+                handle,
+            )
 
-                # После успешного SetClipboardData
-                # Windows становится владельцем handle.
-                handle = None
+            if not result:
+                raise RuntimeError(
+                    "SetClipboardData() не удался."
+                )
 
-            finally:
-                user32.CloseClipboard()
+            # После успешного SetClipboardData Windows
+            # становится владельцем handle.
+            handle = None
 
         finally:
+            if clipboard_opened:
+                user32.CloseClipboard()
+
             if handle:
-                kernel32.GlobalFree(
-                    handle,
-                )
+                kernel32.GlobalFree(handle)
 
     # ========================================================
 
     @classmethod
-    def _paste_text(
+    def _paste(
         cls,
-        text: str,
     ):
-        """
-        Помещает текст в Clipboard и выполняет Ctrl+V.
-        """
-
-        cls._set_clipboard_text(
-            text,
-        )
-
         # Ctrl down
         user32.keybd_event(
             VK_CONTROL,
@@ -470,15 +490,16 @@ if __name__ == "__main__":
     )
 
     print()
-    print("Для теста сначала настройте game_chat.input_point в config.json.")
+    print(
+        "Для теста сначала настройте game_chat.input_point "
+        "в config.json."
+    )
     print()
 
     text = input("Введите готовое сообщение для PoE: ").strip()
 
     if text:
-        result = sender.send(
-            text,
-        )
+        result = sender.send(text)
 
         print(
             "Результат:",
