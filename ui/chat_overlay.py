@@ -22,6 +22,14 @@ CHAT_CHANNELS = [
     ("guild", "Guild - Гильдия", "&"),
 ]
 CHAT_PREFIXES = {prefix for _, _, prefix in CHAT_CHANNELS if prefix}
+CHAT_NAME_COLORS = {
+    "": "#33CC66",   # Local - green
+    "#": "#FF3333",  # Global - red
+    "$": "#FF9933",  # Trade - orange
+    "%": "#6699FF",  # Party - blue
+    "@": "#CC66FF",  # Whisper - purple
+    "&": "#A0A0A0",  # Guild - gray
+}
 
 
 class GlobalHotkeyListener(QObject):
@@ -312,7 +320,8 @@ class ChatOverlay(QWidget):
 
     def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
-        html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:#FF3333; font-weight:bold;">{channel_prefix}{sender}: </span><span style="color:{text_color};">{text}</span></div>"""
+        name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
+        html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:{name_color}; font-weight:bold;">{channel_prefix}{sender}: </span><span style="color:{text_color};">{text}</span></div>"""
         self.chat_history.append(html)
 
 
