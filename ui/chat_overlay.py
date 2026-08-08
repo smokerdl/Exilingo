@@ -254,7 +254,7 @@ class ChatOverlay(QWidget):
     def _on_channel_changed(self, _index: int):
         """При смене канала полностью сбрасывает старое содержимое и ставит префикс нового канала."""
         prefix = self._channel_prefix(self.channel_combo.currentData())
-        self.input_field.setText(f"{prefix} " if prefix else "")
+        self.input_field.setText(f"{prefix}" if prefix else "")
         self.input_field.setCursorPosition(len(self.input_field.text()))
 
     def _prepare_outgoing_message(self, text: str) -> str:
@@ -305,7 +305,7 @@ class ChatOverlay(QWidget):
             self.input_field.setText(self._whisper_input_after_send(prepared_text))
         else:
             prefix = self._channel_prefix(channel_id)
-            self.input_field.setText(f"{prefix} " if prefix else "")
+            self.input_field.setText(f"{prefix}" if prefix else "")
 
         self.input_field.setCursorPosition(len(self.input_field.text()))
         self.set_input_mode(False)
