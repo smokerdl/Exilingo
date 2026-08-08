@@ -4,10 +4,10 @@
     },
     "overlay": {
         "geometry": {
-            "x": 1,
-            "y": 1,
-            "w": 701,
-            "h": 371
+            "x": -2,
+            "y": 92,
+            "w": 704,
+            "h": 286
         },
         "font_size": 13,
         "outgoing_channel": "local"
@@ -79,10 +79,10 @@
     },
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
-        "x": 1,
-        "y": 1,
-        "w": 701,
-        "h": 371
+        "x": -2,
+        "y": 92,
+        "w": 704,
+        "h": 286
     },
     "font_size": 13,
     "translation": {

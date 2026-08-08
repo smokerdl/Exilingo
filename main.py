@@ -4,6 +4,14 @@ import os
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
+from core.logger import (
+    get_logger,
+    log_exception,
+    log_settings_snapshot,
+    setup_logging,
+    shutdown_logging,
+)
+
 from core.log_reader import LogReaderThread
 from core.log_parser import ChatMessage
 from core.models import MessageContext
@@ -44,6 +52,7 @@ OUTGOING_CHANNELS = {
 # F5 — отправка сообщения без переключения режима Overlay
 # ============================================================
 
+
 class OutgoingHotkeyListener(QObject):
     """
     Отдельный глобальный слушатель F5.
@@ -61,6 +70,7 @@ class OutgoingHotkeyListener(QObject):
         super().__init__()
 
         self._keyboard = None
+        self.logger = get_logger("Hotkey")
 
         try:
             import keyboard
@@ -72,17 +82,17 @@ class OutgoingHotkeyListener(QObject):
                 self._on_f5,
             )
 
-            print(
-                "[Hotkey] F5 зарегистрирована: отправка сообщения."
-            )
+            self.logger.info("F5 registered for outgoing message sending.")
 
         except Exception as e:
-            print(
-                f"[HotkeyError] Не удалось зарегистрировать F5: {e}"
+            self.logger.error(
+                "Failed to register F5: %s",
+                e,
+                exc_info=True,
             )
 
     def _on_f5(self):
-        print("[Hotkey] F5 нажата -> запрос отправки сообщения.")
+        self.logger.debug("F5 pressed -> send request.")
         self.send_requested.emit()
 
     def stop(self):
@@ -91,14 +101,23 @@ class OutgoingHotkeyListener(QObject):
 
         try:
             self._keyboard.remove_hotkey("f5")
+            self.logger.debug("F5 unregistered.")
         except Exception as e:
-            print(f"[HotkeyError] Не удалось снять F5: {e}")
+            self.logger.error(
+                "Failed to unregister F5: %s",
+                e,
+                exc_info=True,
+            )
 
 
 class ExilingoApp:
     def __init__(self):
 
+        self.logger = get_logger("Main")
+
         self.app = QApplication(sys.argv)
+
+        self.logger.info("Exilingo application initialized.")
 
         # ---------------------------------------------------
         # Overlay
@@ -120,17 +139,13 @@ class ExilingoApp:
         self.hotkey_listener = GlobalHotkeyListener()
 
         # Enter = только переключение режима Overlay.
-        self.hotkey_listener.toggle_requested.connect(
-            self.overlay.toggle_mode
-        )
+        self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
 
         # F5 = только отправка текущего сообщения.
         # Режим Overlay при этом НЕ меняется.
         self.outgoing_hotkey_listener = OutgoingHotkeyListener()
 
-        self.outgoing_hotkey_listener.send_requested.connect(
-            self.overlay._on_send
-        )
+        self.outgoing_hotkey_listener.send_requested.connect(self.overlay._on_send)
 
         # ---------------------------------------------------
         # Provider Registry + Router
@@ -148,13 +163,9 @@ class ExilingoApp:
             router=self.translation_router,
         )
 
-        self.translation_manager.translation_finished.connect(
-            self.on_message_ready
-        )
+        self.translation_manager.translation_finished.connect(self.on_message_ready)
 
-        self.translation_manager.translation_failed.connect(
-            self.on_translation_failed
-        )
+        self.translation_manager.translation_failed.connect(self.on_translation_failed)
 
         self.translation_manager.start()
 
@@ -181,20 +192,19 @@ class ExilingoApp:
 
             config.log_path = log_path
 
-        print(f"[Main] Используется путь к логу: {log_path}")
+        self.logger.info(
+            "Using Path of Exile log path: %s",
+            log_path,
+        )
 
         self.log_reader = LogReaderThread(
             log_filepath=log_path,
             read_from_end=True,
         )
 
-        self.log_reader.new_chat_message.connect(
-            self.on_new_chat_message
-        )
+        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
 
-        self.log_reader.status_changed.connect(
-            self.on_log_status
-        )
+        self.log_reader.status_changed.connect(self.on_log_status)
 
     # =======================================================
     # Верхняя панель Overlay
@@ -203,12 +213,12 @@ class ExilingoApp:
     def close_application(self):
         """Завершает работу программы."""
 
-        print("[MAIN] Завершение работы...")
+        self.logger.info("Application shutdown requested.")
 
         try:
             self.outgoing_hotkey_listener.stop()
         except Exception:
-            pass
+            self.logger.exception("Error while stopping outgoing hotkey listener.")
 
         self.app.quit()
 
@@ -217,16 +227,20 @@ class ExilingoApp:
     def open_settings(self):
         """Открывает полноценное окно настроек Exilingo."""
 
-        print("[MAIN] Открытие окна настроек")
+        self.logger.info("Settings window opened.")
 
-        accepted = SettingsDialog.open_settings(
-            self.overlay,
-        )
+        try:
+            accepted = SettingsDialog.open_settings(
+                self.overlay,
+            )
 
-        if accepted:
-            print("[MAIN] Настройки сохранены")
-        else:
-            print("[MAIN] Настройки отменены")
+            if accepted:
+                self.logger.info("Settings saved.")
+            else:
+                self.logger.info("Settings cancelled.")
+
+        except Exception:
+            self.logger.exception("Unhandled exception while opening settings.")
 
     # =======================================================
     # Log Reader
@@ -237,8 +251,10 @@ class ExilingoApp:
         msg: ChatMessage,
     ):
 
-        print(
-            "[MAIN] Получено сообщение:",
+        self.logger.info(
+            "Incoming chat message: channel=%r sender=%r text=%r",
+            msg.channel,
+            msg.sender,
             msg.text,
         )
 
@@ -264,7 +280,7 @@ class ExilingoApp:
         text = str(text or "").strip()
 
         if not text:
-            print("[MAIN] Пустое исходящее сообщение — игнорируем.")
+            self.logger.debug("Empty outgoing message ignored.")
             return
 
         prefix = text[0] if text[0] in OUTGOING_CHANNELS else ""
@@ -282,16 +298,14 @@ class ExilingoApp:
             direction="outgoing",
         )
 
-        print(
-            "[MAIN] Исходящее сообщение из Overlay:",
-            repr(text),
-            f"channel={channel}",
-            f"prefix={prefix!r}",
+        self.logger.info(
+            "Outgoing message from Overlay: text=%r channel=%s prefix=%r",
+            text,
+            channel,
+            prefix,
         )
 
-        self.translation_manager.enqueue(
-            MessageContext.from_chat_message(msg)
-        )
+        self.translation_manager.enqueue(MessageContext.from_chat_message(msg))
 
     # =======================================================
     # Translation Pipeline
@@ -315,40 +329,34 @@ class ExilingoApp:
         обычный LogReader -> LogParser -> TranslationManager.
         """
 
-        print(
-            "[MAIN] Сообщение готово:",
-            repr(context.display_text),
-            f"provider={context.provider!r}",
-            f"direction={context.direction!r}",
+        self.logger.info(
+            "Translation completed: text=%r provider=%r direction=%r",
+            context.display_text,
+            context.provider,
+            context.direction,
         )
 
-        is_outgoing = (
-            context.direction is not None
-            and str(context.direction).strip().lower()
-            in {
-                "outgoing",
-                "out",
-                "send",
-                "sent",
-                "to",
-                "кому",
-            }
-        )
+        is_outgoing = context.direction is not None and str(
+            context.direction
+        ).strip().lower() in {
+            "outgoing",
+            "out",
+            "send",
+            "sent",
+            "to",
+            "кому",
+        }
 
         # ---------------------------------------------------
         # Outgoing
         # ---------------------------------------------------
 
         if is_outgoing:
+            prepared_text = context.display_text or context.original_text
 
-            prepared_text = (
-                context.display_text
-                or context.original_text
-            )
-
-            print(
-                "[MAIN] OUTGOING -> GameChatSender.send():",
-                repr(prepared_text),
+            self.logger.info(
+                "OUTGOING -> GameChatSender.send(): %r",
+                prepared_text,
             )
 
             sent = self.game_chat_sender.send(
@@ -356,13 +364,9 @@ class ExilingoApp:
             )
 
             if not sent:
-                print(
-                    "[MAIN] OUTGOING FAILED: GameChatSender вернул False."
-                )
+                self.logger.error("OUTGOING FAILED: GameChatSender returned False.")
             else:
-                print(
-                    "[MAIN] OUTGOING OK: сообщение передано GameChatSender."
-                )
+                self.logger.info("OUTGOING OK: message passed to GameChatSender.")
 
             # Никогда не рисуем outgoing напрямую.
             return
@@ -376,10 +380,10 @@ class ExilingoApp:
         if context.guild_tag:
             sender = f"<{context.guild_tag}> {sender}"
 
-        print(
-            "[MAIN] INCOMING -> Overlay.add_message():",
-            f"sender={sender!r}",
-            f"text={context.display_text!r}",
+        self.logger.info(
+            "INCOMING -> Overlay.add_message(): sender=%r text=%r",
+            sender,
+            context.display_text,
         )
 
         self.overlay.add_message(
@@ -398,32 +402,28 @@ class ExilingoApp:
     ):
         """Обрабатывает ситуацию, когда все провайдеры перевода завершились ошибкой."""
 
-        print(
-            "[MAIN] Перевод не выполнен:",
-            repr(context.original_text),
-            "|",
+        self.logger.error(
+            "Translation failed: original=%r error=%r direction=%r",
+            context.original_text,
             error,
-            f"direction={context.direction!r}",
+            context.direction,
         )
 
-        is_outgoing = (
-            context.direction is not None
-            and str(context.direction).strip().lower()
-            in {
-                "outgoing",
-                "out",
-                "send",
-                "sent",
-                "to",
-                "кому",
-            }
-        )
+        is_outgoing = context.direction is not None and str(
+            context.direction
+        ).strip().lower() in {
+            "outgoing",
+            "out",
+            "send",
+            "sent",
+            "to",
+            "кому",
+        }
 
         if is_outgoing:
-
-            print(
-                "[MAIN] OUTGOING FALLBACK -> GameChatSender.send():",
-                repr(context.original_text),
+            self.logger.warning(
+                "OUTGOING FALLBACK -> GameChatSender.send(): %r",
+                context.original_text,
             )
 
             sent = self.game_chat_sender.send(
@@ -431,13 +431,9 @@ class ExilingoApp:
             )
 
             if not sent:
-                print(
-                    "[MAIN] OUTGOING FALLBACK FAILED."
-                )
+                self.logger.error("OUTGOING FALLBACK FAILED.")
             else:
-                print(
-                    "[MAIN] OUTGOING FALLBACK OK."
-                )
+                self.logger.info("OUTGOING FALLBACK OK.")
 
             # Не рисуем outgoing напрямую.
             return
@@ -461,13 +457,18 @@ class ExilingoApp:
         status: str,
     ):
 
-        print(f"[LogReader] {status}")
+        self.logger.info(
+            "LogReader: %s",
+            status,
+        )
 
     # =======================================================
 
     def run(self):
 
         self.log_reader.start()
+
+        self.logger.info("LogReader monitoring started.")
 
         self.overlay.show()
 
@@ -480,19 +481,44 @@ class ExilingoApp:
 
         ret = self.app.exec()
 
+        self.logger.info(
+            "Qt event loop finished with exit code %s.",
+            ret,
+        )
+
         self.log_reader.stop()
         self.translation_manager.stop()
 
         try:
             self.outgoing_hotkey_listener.stop()
         except Exception:
-            pass
+            self.logger.exception("Error while stopping outgoing hotkey listener.")
 
         sys.exit(ret)
 
 
 if __name__ == "__main__":
-    app = ExilingoApp()
+    # Логирование и снимок настроек создаются до запуска основного приложения.
+    logger = setup_logging()
 
-    app.run()
+    try:
+        log_settings_snapshot(
+            config.data,
+            logger=get_logger("Settings"),
+        )
 
+        app = ExilingoApp()
+        app.run()
+
+    except SystemExit:
+        raise
+
+    except Exception:
+        log_exception(
+            logger,
+            "Unhandled exception at application top level.",
+        )
+        raise
+
+    finally:
+        shutdown_logging()

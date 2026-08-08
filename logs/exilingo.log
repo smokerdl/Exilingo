@@ -1,0 +1,122 @@
+2026-08-09 00:27:18.839 [INFO] [Exilingo] ====================================================================
+2026-08-09 00:27:18.839 [INFO] [Exilingo] EXILINGO SESSION START
+2026-08-09 00:27:18.839 [INFO] [Exilingo] Started: 2026-08-09T00:27:18+03:00
+2026-08-09 00:27:18.839 [INFO] [Exilingo] Python: 3.11.9
+2026-08-09 00:27:18.839 [INFO] [Exilingo] Platform: win32
+2026-08-09 00:27:18.840 [INFO] [Exilingo] Project root: C:\Users\smk79\Documents\Скрипты Pythons\Exilingo
+2026-08-09 00:27:18.840 [INFO] [Exilingo] ====================================================================
+2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT BEGIN
+2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] 
+{
+  "general": {
+    "log_path": "C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt"
+  },
+  "overlay": {
+    "geometry": {
+      "x": -2,
+      "y": 92,
+      "w": 704,
+      "h": 286
+    },
+    "font_size": 13,
+    "outgoing_channel": "local"
+  },
+  "game_chat": {
+    "input_point": {
+      "x": 578,
+      "y": 794
+    }
+  },
+  "providers": {
+    "google": {
+      "enabled": true,
+      "source_language": "en",
+      "target_language": "ru"
+    },
+    "gemini": {
+      "enabled": false,
+      "api_key": "",
+      "model": "gemini-2.5-flash",
+      "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
+      "source_language": "en",
+      "target_language": "ru"
+    },
+    "groq": {
+      "enabled": false,
+      "api_key": "",
+      "model": "",
+      "system_prompt": "",
+      "source_language": "en",
+      "target_language": "ru"
+    },
+    "openrouter": {
+      "enabled": false,
+      "api_key": "",
+      "model": "",
+      "system_prompt": "",
+      "source_language": "en",
+      "target_language": "ru"
+    },
+    "ollama": {
+      "enabled": false,
+      "host": "http://127.0.0.1:11434",
+      "model": "",
+      "system_prompt": "",
+      "source_language": "en",
+      "target_language": "ru"
+    }
+  },
+  "routing": {
+    "global": [
+      "google"
+    ],
+    "local": [
+      "google"
+    ],
+    "trade": [
+      "google"
+    ],
+    "party": [
+      "google"
+    ],
+    "guild": [
+      "google"
+    ],
+    "whisper": [
+      "google"
+    ]
+  },
+  "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
+  "overlay_geometry": {
+    "x": -2,
+    "y": 92,
+    "w": 704,
+    "h": 286
+  },
+  "font_size": 13,
+  "translation": {
+    "provider": "google",
+    "source_language": "en",
+    "target_language": "ru"
+  }
+}
+2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT END
+2026-08-09 00:27:18.865 [INFO] [Exilingo.Main] Exilingo application initialized.
+2026-08-09 00:27:19.055 [INFO] [Exilingo.Hotkey] F5 registered for outgoing message sending.
+2026-08-09 00:27:19.055 [INFO] [Exilingo.Main] Using Path of Exile log path: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-09 00:27:19.055 [INFO] [Exilingo.Main] LogReader monitoring started.
+2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Поиск файла логов: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Файл логов найден. Открытие...
+2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Мониторинг чата активен
+2026-08-09 00:27:33.480 [INFO] [Exilingo.Main] Application shutdown requested.
+2026-08-09 00:27:33.480 [DEBUG] [Exilingo.Hotkey] F5 unregistered.
+2026-08-09 00:27:33.487 [INFO] [Exilingo.Main] Qt event loop finished with exit code 0.
+2026-08-09 00:27:33.539 [ERROR] [Exilingo.Hotkey] Failed to unregister F5: 'f5'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\main.py", line 103, in stop
+    self._keyboard.remove_hotkey("f5")
+  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\keyboard\__init__.py", line 750, in remove_hotkey
+    _hotkeys[hotkey_or_callback]()
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+KeyError: 'f5'
+2026-08-09 00:27:33.540 [INFO] [Exilingo] EXILINGO SESSION END
