@@ -59,27 +59,21 @@
     },
     "routing": {
         "global": [
-            "google",
-            "gemini"
+            "google"
         ],
         "local": [
-            "google",
-            "gemini"
+            "google"
         ],
         "trade": [
-            "google",
-            "gemini"
+            "google"
         ],
         "party": [
-            "gemini",
             "google"
         ],
         "guild": [
-            "google",
-            "gemini"
+            "google"
         ],
         "whisper": [
-            "gemini",
             "google"
         ]
     },

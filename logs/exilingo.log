@@ -1,12 +1,12 @@
-2026-08-09 00:27:18.839 [INFO] [Exilingo] ====================================================================
-2026-08-09 00:27:18.839 [INFO] [Exilingo] EXILINGO SESSION START
-2026-08-09 00:27:18.839 [INFO] [Exilingo] Started: 2026-08-09T00:27:18+03:00
-2026-08-09 00:27:18.839 [INFO] [Exilingo] Python: 3.11.9
-2026-08-09 00:27:18.839 [INFO] [Exilingo] Platform: win32
-2026-08-09 00:27:18.840 [INFO] [Exilingo] Project root: C:\Users\smk79\Documents\Скрипты Pythons\Exilingo
-2026-08-09 00:27:18.840 [INFO] [Exilingo] ====================================================================
-2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT BEGIN
-2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] 
+2026-08-09 09:19:27.614 [INFO] [Exilingo] ====================================================================
+2026-08-09 09:19:27.614 [INFO] [Exilingo] EXILINGO SESSION START
+2026-08-09 09:19:27.614 [INFO] [Exilingo] Started: 2026-08-09T09:19:27+03:00
+2026-08-09 09:19:27.614 [INFO] [Exilingo] Python: 3.11.9
+2026-08-09 09:19:27.614 [INFO] [Exilingo] Platform: win32
+2026-08-09 09:19:27.614 [INFO] [Exilingo] Project root: C:\Users\smk79\Documents\Скрипты Pythons\Exilingo
+2026-08-09 09:19:27.614 [INFO] [Exilingo] ====================================================================
+2026-08-09 09:19:27.615 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT BEGIN
+2026-08-09 09:19:27.615 [INFO] [Exilingo.Settings] 
 {
   "general": {
     "log_path": "C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt"
@@ -36,7 +36,7 @@
     "gemini": {
       "enabled": false,
       "api_key": "",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3.5-flash-lite",
       "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
       "source_language": "en",
       "target_language": "ru"
@@ -68,21 +68,27 @@
   },
   "routing": {
     "global": [
-      "google"
+      "google",
+      "gemini"
     ],
     "local": [
-      "google"
+      "google",
+      "gemini"
     ],
     "trade": [
-      "google"
+      "google",
+      "gemini"
     ],
     "party": [
+      "gemini",
       "google"
     ],
     "guild": [
-      "google"
+      "google",
+      "gemini"
     ],
     "whisper": [
+      "gemini",
       "google"
     ]
   },
@@ -100,23 +106,462 @@
     "target_language": "ru"
   }
 }
-2026-08-09 00:27:18.840 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT END
-2026-08-09 00:27:18.865 [INFO] [Exilingo.Main] Exilingo application initialized.
-2026-08-09 00:27:19.055 [INFO] [Exilingo.Hotkey] F5 registered for outgoing message sending.
-2026-08-09 00:27:19.055 [INFO] [Exilingo.Main] Using Path of Exile log path: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
-2026-08-09 00:27:19.055 [INFO] [Exilingo.Main] LogReader monitoring started.
-2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Поиск файла логов: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
-2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Файл логов найден. Открытие...
-2026-08-09 00:27:19.059 [INFO] [Exilingo.Main] LogReader: Мониторинг чата активен
-2026-08-09 00:27:33.480 [INFO] [Exilingo.Main] Application shutdown requested.
-2026-08-09 00:27:33.480 [DEBUG] [Exilingo.Hotkey] F5 unregistered.
-2026-08-09 00:27:33.487 [INFO] [Exilingo.Main] Qt event loop finished with exit code 0.
-2026-08-09 00:27:33.539 [ERROR] [Exilingo.Hotkey] Failed to unregister F5: 'f5'
+2026-08-09 09:19:27.615 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT END
+2026-08-09 09:19:27.642 [INFO] [Exilingo.Main] Exilingo application initialized.
+2026-08-09 09:19:27.828 [INFO] [Exilingo.Hotkey] F5 registered for outgoing message sending.
+2026-08-09 09:19:27.828 [INFO] [Exilingo.TranslationManager] Translation worker started.
+2026-08-09 09:19:27.828 [INFO] [Exilingo.Main] Using Path of Exile log path: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-09 09:19:27.828 [INFO] [Exilingo.Main] LogReader monitoring started.
+2026-08-09 09:19:27.832 [INFO] [Exilingo.Main] LogReader: Поиск файла логов: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-09 09:19:27.832 [INFO] [Exilingo.Main] LogReader: Файл логов найден. Открытие...
+2026-08-09 09:19:27.832 [INFO] [Exilingo.Main] LogReader: Мониторинг чата активен
+2026-08-09 09:20:26.921 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ThaTrapStar' text='Жуткий хват, Беглое кольцо'
+2026-08-09 09:20:26.921 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ThaTrapStar' text='Жуткий хват, Беглое кольцо' queue_before=0
+2026-08-09 09:20:26.922 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google', 'gemini'] source='en' target='ru' channel='trade' sender='ThaTrapStar'
+2026-08-09 09:20:26.922 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='en' target='ru' text='Жуткий хват, Беглое кольцо'
+2026-08-09 09:20:26.922 [INFO] [Exilingo.TranslationManager] translation skipped: detected='ru' expected_source='en' text='Жуткий хват, Беглое кольцо'
+2026-08-09 09:20:26.922 [INFO] [Exilingo.TranslationManager] translation completed: provider=None direction=None source='ru' target='ru' elapsed_ms=0.6 original='Жуткий хват, Беглое кольцо' result='Жуткий хват, Беглое кольцо'
+2026-08-09 09:20:26.922 [INFO] [Exilingo.Main] Translation completed: text='Жуткий хват, Беглое кольцо' provider=None direction=None
+2026-08-09 09:20:26.922 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ThaTrapStar' text='Жуткий хват, Беглое кольцо'
+2026-08-09 09:20:48.558 [INFO] [Exilingo.Main] Settings window opened.
+2026-08-09 09:20:58.728 [INFO] [Exilingo.Main] Settings saved.
+2026-08-09 09:21:05.164 [INFO] [Exilingo.Main] Settings window opened.
+2026-08-09 09:21:37.965 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='BlowjobsForTwoChaos' text='Almost died to a Absolution mercenary. Then I checked his weapon Гипнотический грань, Жезл вызова'
+2026-08-09 09:21:37.965 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='BlowjobsForTwoChaos' text='Almost died to a Absolution mercenary. Then I checked his weapon Гипнотический грань, Жезл вызова' queue_before=0
+2026-08-09 09:21:37.965 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='BlowjobsForTwoChaos'
+2026-08-09 09:21:37.966 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='Almost died to a Absolution mercenary. Then I checked his weapon Гипнотический грань, Жезл вызова'
+2026-08-09 09:21:37.966 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Almost died to a Absolution mercenary. Then I checked his weapon Гипнотический грань, Жезл вызова'
+2026-08-09 09:21:39.118 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1152.4 result='Чуть не погиб наемник из Absolution. Потом я проверил его оружие.'
+2026-08-09 09:21:39.118 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1152.7 original='Almost died to a Absolution mercenary. Then I checked his weapon Гипнотический грань, Жезл вызова' result='Чуть не погиб наемник из Absolution. Потом я проверил его оружие.'
+2026-08-09 09:21:39.118 [INFO] [Exilingo.Main] Translation completed: text='Чуть не погиб наемник из Absolution. Потом я проверил его оружие.' provider='Google Translate' direction=None
+2026-08-09 09:21:39.118 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<POOUR> BlowjobsForTwoChaos' text='Чуть не погиб наемник из Absolution. Потом я проверил его оружие.'
+2026-08-09 09:21:55.119 [INFO] [Exilingo.Main] Settings saved.
+2026-08-09 09:22:10.337 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text='Does the 75% less str/int/dex merc nodes on atlas tree do anything to help find kineticists?'
+2026-08-09 09:22:10.337 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text='Does the 75% less str/int/dex merc nodes on atlas tree do anything to help find kineticists?' queue_before=0
+2026-08-09 09:22:10.337 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:22:10.337 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='Does the 75% less str/int/dex merc nodes on atlas tree do anything to help find kineticists?'
+2026-08-09 09:22:10.337 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Does the 75% less str/int/dex merc nodes on atlas tree do anything to help find kineticists?'
+2026-08-09 09:22:11.302 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=964.9 result='Помогает ли на 75% меньше узлов наемников str/int/dex в дереве атласа найти кинетистов?'
+2026-08-09 09:22:11.303 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=965.3 original='Does the 75% less str/int/dex merc nodes on atlas tree do anything to help find kineticists?' result='Помогает ли на 75% меньше узлов наемников str/int/dex в дереве атласа найти кинетистов?'
+2026-08-09 09:22:11.303 [INFO] [Exilingo.Main] Translation completed: text='Помогает ли на 75% меньше узлов наемников str/int/dex в дереве атласа найти кинетистов?' provider='Google Translate' direction=None
+2026-08-09 09:22:11.303 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<VikiNG> InfHenrik_MercBAIT' text='Помогает ли на 75% меньше узлов наемников str/int/dex в дереве атласа найти кинетистов?'
+2026-08-09 09:22:18.455 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='yahgo' text='nope'
+2026-08-09 09:22:18.456 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='yahgo' text='nope' queue_before=0
+2026-08-09 09:22:18.456 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='yahgo'
+2026-08-09 09:22:18.456 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='nope'
+2026-08-09 09:22:18.456 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='nope'
+2026-08-09 09:22:18.942 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=486.2 result='неа'
+2026-08-09 09:22:18.942 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=486.5 original='nope' result='неа'
+2026-08-09 09:22:18.942 [INFO] [Exilingo.Main] Translation completed: text='неа' provider='Google Translate' direction=None
+2026-08-09 09:22:18.942 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='yahgo' text='неа'
+2026-08-09 09:22:20.392 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='Ice_L' text='no, hurts'
+2026-08-09 09:22:20.392 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='Ice_L' text='no, hurts' queue_before=0
+2026-08-09 09:22:20.392 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='Ice_L'
+2026-08-09 09:22:20.392 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='no, hurts'
+2026-08-09 09:22:20.393 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='no, hurts'
+2026-08-09 09:22:20.608 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='AngelicaHart' text='no'
+2026-08-09 09:22:20.608 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='AngelicaHart' text='no' queue_before=0
+2026-08-09 09:22:20.936 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=543.8 result='нет, больно'
+2026-08-09 09:22:20.936 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=544.1 original='no, hurts' result='нет, больно'
+2026-08-09 09:22:20.936 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='AngelicaHart'
+2026-08-09 09:22:20.937 [INFO] [Exilingo.Main] Translation completed: text='нет, больно' provider='Google Translate' direction=None
+2026-08-09 09:22:20.937 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='no'
+2026-08-09 09:22:20.937 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<THÉ> Ice_L' text='нет, больно'
+2026-08-09 09:22:20.937 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='no'
+2026-08-09 09:22:21.386 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=448.1 result='нет'
+2026-08-09 09:22:21.386 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=448.6 original='no' result='нет'
+2026-08-09 09:22:21.386 [INFO] [Exilingo.Main] Translation completed: text='нет' provider='Google Translate' direction=None
+2026-08-09 09:22:21.386 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='AngelicaHart' text='нет'
+2026-08-09 09:22:22.660 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='NO_BAR_OUT' text='heard its bad to click any'
+2026-08-09 09:22:22.660 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='NO_BAR_OUT' text='heard its bad to click any' queue_before=0
+2026-08-09 09:22:22.660 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='NO_BAR_OUT'
+2026-08-09 09:22:22.660 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='heard its bad to click any'
+2026-08-09 09:22:22.660 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='heard its bad to click any'
+2026-08-09 09:22:22.767 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='no'
+2026-08-09 09:22:22.767 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='no' queue_before=0
+2026-08-09 09:22:23.417 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='NO_BAR_OUT' text='for kinet'
+2026-08-09 09:22:23.418 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='NO_BAR_OUT' text='for kinet' queue_before=1
+2026-08-09 09:22:23.461 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=800.9 result='слышал, что плохо нажимать на любую кнопку'
+2026-08-09 09:22:23.461 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=801.2 original='heard its bad to click any' result='слышал, что плохо нажимать на любую кнопку'
+2026-08-09 09:22:23.461 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:22:23.461 [INFO] [Exilingo.Main] Translation completed: text='слышал, что плохо нажимать на любую кнопку' provider='Google Translate' direction=None
+2026-08-09 09:22:23.462 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='no'
+2026-08-09 09:22:23.462 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<(OwO)ß> NO_BAR_OUT' text='слышал, что плохо нажимать на любую кнопку'
+2026-08-09 09:22:23.462 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='no'
+2026-08-09 09:22:23.951 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=489.0 result='нет'
+2026-08-09 09:22:23.951 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=489.5 original='no' result='нет'
+2026-08-09 09:22:23.951 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='NO_BAR_OUT'
+2026-08-09 09:22:23.952 [INFO] [Exilingo.Main] Translation completed: text='нет' provider='Google Translate' direction=None
+2026-08-09 09:22:23.952 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='for kinet'
+2026-08-09 09:22:23.952 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='нет'
+2026-08-09 09:22:23.952 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='for kinet'
+2026-08-09 09:22:25.183 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1231.7 result='для кинета'
+2026-08-09 09:22:25.184 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1232.2 original='for kinet' result='для кинета'
+2026-08-09 09:22:25.184 [INFO] [Exilingo.Main] Translation completed: text='для кинета' provider='Google Translate' direction=None
+2026-08-09 09:22:25.184 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<(OwO)ß> NO_BAR_OUT' text='для кинета'
+2026-08-09 09:22:28.273 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='kineticists are all 3'
+2026-08-09 09:22:28.274 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='kineticists are all 3' queue_before=0
+2026-08-09 09:22:28.274 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:22:28.274 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='kineticists are all 3'
+2026-08-09 09:22:28.274 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='kineticists are all 3'
+2026-08-09 09:22:29.422 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1148.4 result='кинетики все 3'
+2026-08-09 09:22:29.422 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1148.6 original='kineticists are all 3' result='кинетики все 3'
+2026-08-09 09:22:29.422 [INFO] [Exilingo.Main] Translation completed: text='кинетики все 3' provider='Google Translate' direction=None
+2026-08-09 09:22:29.422 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='кинетики все 3'
+2026-08-09 09:22:37.118 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text='aight thanks <3 :)'
+2026-08-09 09:22:37.118 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text='aight thanks <3 :)' queue_before=0
+2026-08-09 09:22:37.119 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:22:37.119 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='aight thanks <3 :)'
+2026-08-09 09:22:37.119 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='aight thanks <3 :)'
+2026-08-09 09:22:37.559 [WARNING] [Exilingo.TranslationManager] provider failed: provider='google' elapsed_ms=439.8 error='aight thanks <3 :) --> No translation was found using the current translator. Try another translator?'
 Traceback (most recent call last):
-  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\main.py", line 103, in stop
-    self._keyboard.remove_hotkey("f5")
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\keyboard\__init__.py", line 750, in remove_hotkey
-    _hotkeys[hotkey_or_callback]()
-    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^
-KeyError: 'f5'
-2026-08-09 00:27:33.540 [INFO] [Exilingo] EXILINGO SESSION END
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 242, in _process_context
+    translated = translator.translate(normalized)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\providers\google_translate.py", line 63, in translate
+    return self._translator.translate(text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\deep_translator\google.py", line 84, in translate
+    raise TranslationNotFound(text)
+deep_translator.exceptions.TranslationNotFound: aight thanks <3 :) --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:22:37.584 [ERROR] [Exilingo.TranslationManager] translation failed: direction=None elapsed_ms=465.1 original='aight thanks <3 :)' error='Все провайдеры маршрута завершились ошибкой: google: aight thanks <3 :) --> No translation was found using the current translator. Try another translator?'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 91, in _worker_loop
+    self._process_context(context)
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 355, in _process_context
+    raise RuntimeError(
+RuntimeError: Все провайдеры маршрута завершились ошибкой: google: aight thanks <3 :) --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:22:37.585 [ERROR] [Exilingo.Main] Translation failed: original='aight thanks <3 :)' error='Все провайдеры маршрута завершились ошибкой: google: aight thanks <3 :) --> No translation was found using the current translator. Try another translator?' direction=None
+2026-08-09 09:22:40.252 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ThisGameKindaHardwtf' text='kineticist is all 3 of them, dont pick any node'
+2026-08-09 09:22:40.252 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ThisGameKindaHardwtf' text='kineticist is all 3 of them, dont pick any node' queue_before=0
+2026-08-09 09:22:40.253 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ThisGameKindaHardwtf'
+2026-08-09 09:22:40.253 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='kineticist is all 3 of them, dont pick any node'
+2026-08-09 09:22:40.253 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='kineticist is all 3 of them, dont pick any node'
+2026-08-09 09:22:40.881 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=628.3 result='кинетик - все трое, не выбирайте ни одного узла'
+2026-08-09 09:22:40.881 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=628.6 original='kineticist is all 3 of them, dont pick any node' result='кинетик - все трое, не выбирайте ни одного узла'
+2026-08-09 09:22:40.881 [INFO] [Exilingo.Main] Translation completed: text='кинетик - все трое, не выбирайте ни одного узла' provider='Google Translate' direction=None
+2026-08-09 09:22:40.881 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<TVARI8> ThisGameKindaHardwtf' text='кинетик - все трое, не выбирайте ни одного узла'
+2026-08-09 09:22:45.854 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='that will be 10d thank you'
+2026-08-09 09:22:45.854 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='that will be 10d thank you' queue_before=0
+2026-08-09 09:22:45.854 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:22:45.854 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='that will be 10d thank you'
+2026-08-09 09:22:45.854 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='that will be 10d thank you'
+2026-08-09 09:22:46.616 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=760.9 result='это будет 10 дней, спасибо'
+2026-08-09 09:22:46.616 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=761.1 original='that will be 10d thank you' result='это будет 10 дней, спасибо'
+2026-08-09 09:22:46.616 [INFO] [Exilingo.Main] Translation completed: text='это будет 10 дней, спасибо' provider='Google Translate' direction=None
+2026-08-09 09:22:46.616 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='это будет 10 дней, спасибо'
+2026-08-09 09:22:50.763 [DEBUG] [Exilingo.Hotkey] F5 pressed -> send request.
+2026-08-09 09:22:50.764 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='привет' channel=local prefix=''
+2026-08-09 09:22:50.764 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='local' sender='You' text='привет' queue_before=0
+2026-08-09 09:22:50.764 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['google'] source='ru' target='en' channel='local' sender='You'
+2026-08-09 09:22:50.768 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='привет'
+2026-08-09 09:22:50.768 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction='outgoing' language=ru->en text='привет'
+2026-08-09 09:22:51.231 [WARNING] [Exilingo.TranslationManager] provider failed: provider='google' elapsed_ms=463.7 error='привет --> No translation was found using the current translator. Try another translator?'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 242, in _process_context
+    translated = translator.translate(normalized)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\providers\google_translate.py", line 63, in translate
+    return self._translator.translate(text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\deep_translator\google.py", line 84, in translate
+    raise TranslationNotFound(text)
+deep_translator.exceptions.TranslationNotFound: привет --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:22:51.233 [ERROR] [Exilingo.TranslationManager] translation failed: direction='outgoing' elapsed_ms=468.8 original='привет' error='Все провайдеры маршрута завершились ошибкой: google: привет --> No translation was found using the current translator. Try another translator?'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 91, in _worker_loop
+    self._process_context(context)
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 355, in _process_context
+    raise RuntimeError(
+RuntimeError: Все провайдеры маршрута завершились ошибкой: google: привет --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:22:51.233 [ERROR] [Exilingo.Main] Translation failed: original='привет' error='Все провайдеры маршрута завершились ошибкой: google: привет --> No translation was found using the current translator. Try another translator?' direction='outgoing'
+2026-08-09 09:22:51.233 [WARNING] [Exilingo.Main] OUTGOING FALLBACK -> GameChatSender.send(): 'привет'
+2026-08-09 09:22:51.750 [INFO] [Exilingo.Main] OUTGOING FALLBACK OK.
+2026-08-09 09:23:00.426 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text='and avoid the cayax/azadi/keitan'
+2026-08-09 09:23:00.426 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text='and avoid the cayax/azadi/keitan' queue_before=0
+2026-08-09 09:23:00.427 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:23:00.427 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='and avoid the cayax/azadi/keitan'
+2026-08-09 09:23:00.427 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='and avoid the cayax/azadi/keitan'
+2026-08-09 09:23:01.305 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=877.3 result='и избегайте каякса/азади/кейтана'
+2026-08-09 09:23:01.305 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=877.7 original='and avoid the cayax/azadi/keitan' result='и избегайте каякса/азади/кейтана'
+2026-08-09 09:23:01.305 [INFO] [Exilingo.Main] Translation completed: text='и избегайте каякса/азади/кейтана' provider='Google Translate' direction=None
+2026-08-09 09:23:01.305 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<VikiNG> InfHenrik_MercBAIT' text='и избегайте каякса/азади/кейтана'
+2026-08-09 09:23:02.156 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text='?'
+2026-08-09 09:23:02.157 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text='?' queue_before=0
+2026-08-09 09:23:02.157 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:23:02.157 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='?'
+2026-08-09 09:23:02.157 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='?'
+2026-08-09 09:23:02.664 [WARNING] [Exilingo.TranslationManager] provider failed: provider='google' elapsed_ms=507.2 error='Провайдер вернул None'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 244, in _process_context
+    raise RuntimeError("Провайдер вернул None")
+RuntimeError: Провайдер вернул None
+2026-08-09 09:23:02.665 [ERROR] [Exilingo.TranslationManager] translation failed: direction=None elapsed_ms=507.9 original='?' error='Все провайдеры маршрута завершились ошибкой: google: Провайдер вернул None'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 91, in _worker_loop
+    self._process_context(context)
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 355, in _process_context
+    raise RuntimeError(
+RuntimeError: Все провайдеры маршрута завершились ошибкой: google: Провайдер вернул None
+2026-08-09 09:23:02.665 [ERROR] [Exilingo.Main] Translation failed: original='?' error='Все провайдеры маршрута завершились ошибкой: google: Провайдер вернул None' direction=None
+2026-08-09 09:23:05.981 [DEBUG] [Exilingo.Hotkey] F5 pressed -> send request.
+2026-08-09 09:23:05.982 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='привет' channel=local prefix=''
+2026-08-09 09:23:05.982 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='local' sender='You' text='привет' queue_before=0
+2026-08-09 09:23:05.982 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['google'] source='ru' target='en' channel='local' sender='You'
+2026-08-09 09:23:05.982 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='привет'
+2026-08-09 09:23:05.983 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction='outgoing' language=ru->en text='привет'
+2026-08-09 09:23:06.456 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=473.3 result='Hello'
+2026-08-09 09:23:06.456 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction='outgoing' source='ru' target='en' elapsed_ms=473.6 original='привет' result='Hello'
+2026-08-09 09:23:06.456 [INFO] [Exilingo.Main] Translation completed: text='Hello' provider='Google Translate' direction='outgoing'
+2026-08-09 09:23:06.456 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): 'Hello'
+2026-08-09 09:23:06.969 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
+2026-08-09 09:23:07.008 [INFO] [Exilingo.Main] Incoming chat message: channel='global' sender='HaveAreNiceDay' text='Hello'
+2026-08-09 09:23:07.008 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='global' sender='HaveAreNiceDay' text='Hello' queue_before=0
+2026-08-09 09:23:07.009 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='global' sender='HaveAreNiceDay'
+2026-08-09 09:23:07.009 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='Hello'
+2026-08-09 09:23:07.009 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Hello'
+2026-08-09 09:23:07.481 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=472.9 result='Привет'
+2026-08-09 09:23:07.481 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=473.2 original='Hello' result='Привет'
+2026-08-09 09:23:07.482 [INFO] [Exilingo.Main] Translation completed: text='Привет' provider='Google Translate' direction=None
+2026-08-09 09:23:07.482 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<GRINED> HaveAreNiceDay' text='Привет'
+2026-08-09 09:23:11.755 [INFO] [Exilingo.Main] Incoming chat message: channel='global' sender='Northern_Cardinal' text='hi'
+2026-08-09 09:23:11.755 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='global' sender='Northern_Cardinal' text='hi' queue_before=0
+2026-08-09 09:23:11.755 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='global' sender='Northern_Cardinal'
+2026-08-09 09:23:11.756 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='hi'
+2026-08-09 09:23:11.756 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='hi'
+2026-08-09 09:23:12.253 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=497.2 result='привет'
+2026-08-09 09:23:12.253 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=497.5 original='hi' result='привет'
+2026-08-09 09:23:12.253 [INFO] [Exilingo.Main] Translation completed: text='привет' provider='Google Translate' direction=None
+2026-08-09 09:23:12.254 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='Northern_Cardinal' text='привет'
+2026-08-09 09:23:43.670 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='$привет' channel=trade prefix='$'
+2026-08-09 09:23:43.670 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='trade' sender='You' text='$привет' queue_before=0
+2026-08-09 09:23:43.671 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['google'] source='ru' target='en' channel='trade' sender='You'
+2026-08-09 09:23:43.671 [DEBUG] [Exilingo.TranslationManager] outgoing prefix extracted: '$'
+2026-08-09 09:23:43.671 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='привет'
+2026-08-09 09:23:43.671 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction='outgoing' language=ru->en text='привет'
+2026-08-09 09:23:44.130 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=459.0 result='Hello'
+2026-08-09 09:23:44.130 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction='outgoing' source='ru' target='en' elapsed_ms=459.4 original='$привет' result='$Hello'
+2026-08-09 09:23:44.130 [INFO] [Exilingo.Main] Translation completed: text='$Hello' provider='Google Translate' direction='outgoing'
+2026-08-09 09:23:44.130 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): '$Hello'
+2026-08-09 09:23:44.649 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
+2026-08-09 09:23:44.741 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='HaveAreNiceDay' text='Hello'
+2026-08-09 09:23:44.741 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='HaveAreNiceDay' text='Hello' queue_before=0
+2026-08-09 09:23:44.741 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='HaveAreNiceDay'
+2026-08-09 09:23:44.741 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='Hello'
+2026-08-09 09:23:44.741 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Hello'
+2026-08-09 09:23:45.247 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=506.2 result='Привет'
+2026-08-09 09:23:45.248 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=506.6 original='Hello' result='Привет'
+2026-08-09 09:23:45.248 [INFO] [Exilingo.Main] Translation completed: text='Привет' provider='Google Translate' direction=None
+2026-08-09 09:23:45.248 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<GRINED> HaveAreNiceDay' text='Привет'
+2026-08-09 09:23:48.837 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text="Think I got some strat down, I wanna just rush boss on city square and find the merc right? That'll be enough to sustain new white t16s?"
+2026-08-09 09:23:48.837 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text="Think I got some strat down, I wanna just rush boss on city square and find the merc right? That'll be enough to sustain new white t16s?" queue_before=0
+2026-08-09 09:23:48.837 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:23:48.837 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text="Think I got some strat down, I wanna just rush boss on city square and find the merc right? That'll be enough to sustain new white t16s?"
+2026-08-09 09:23:48.837 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text="Think I got some strat down, I wanna just rush boss on city square and find the merc right? That'll be enough to sustain new white t16s?"
+2026-08-09 09:23:49.712 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=875.7 result='Думаешь, у меня есть хитрость, я хочу просто броситься на босса на городской площади и найти наемника, верно? Этого будет достаточно, чтобы выдержать новые белые т16?'
+2026-08-09 09:23:49.713 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=876.1 original="Think I got some strat down, I wanna just rush boss on city square and find the merc right? That'll be enough to sustain new white t16s?" result='Думаешь, у меня есть хитрость, я хочу просто броситься на босса на городской площади и найти наемника, верно? Этого будет достаточно, чтобы выдержать новые белые т16?'
+2026-08-09 09:23:49.713 [INFO] [Exilingo.Main] Translation completed: text='Думаешь, у меня есть хитрость, я хочу просто броситься на босса на городской площади и найти наемника, верно? Этого будет достаточно, чтобы выдержать новые белые т16?' provider='Google Translate' direction=None
+2026-08-09 09:23:49.713 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<VikiNG> InfHenrik_MercBAIT' text='Думаешь, у меня есть хитрость, я хочу просто броситься на босса на городской площади и найти наемника, верно? Этого будет достаточно, чтобы выдержать новые белые т16?'
+2026-08-09 09:24:07.181 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='TLI_ENJOYER' text='speedrunning death'
+2026-08-09 09:24:07.181 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='TLI_ENJOYER' text='speedrunning death' queue_before=0
+2026-08-09 09:24:07.181 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='TLI_ENJOYER'
+2026-08-09 09:24:07.182 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='speedrunning death'
+2026-08-09 09:24:07.182 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='speedrunning death'
+2026-08-09 09:24:07.849 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=667.1 result='смерть от скоростного бега'
+2026-08-09 09:24:07.849 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=667.4 original='speedrunning death' result='смерть от скоростного бега'
+2026-08-09 09:24:07.849 [INFO] [Exilingo.Main] Translation completed: text='смерть от скоростного бега' provider='Google Translate' direction=None
+2026-08-09 09:24:07.849 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<SLOMAR> TLI_ENJOYER' text='смерть от скоростного бега'
+2026-08-09 09:24:13.661 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='richardcainswildride' text='nah ull run out of maps'
+2026-08-09 09:24:13.661 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='richardcainswildride' text='nah ull run out of maps' queue_before=0
+2026-08-09 09:24:13.661 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='richardcainswildride'
+2026-08-09 09:24:13.661 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='nah ull run out of maps'
+2026-08-09 09:24:13.661 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='nah ull run out of maps'
+2026-08-09 09:24:14.770 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1109.0 result='нет, у тебя кончились карты'
+2026-08-09 09:24:14.770 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1109.3 original='nah ull run out of maps' result='нет, у тебя кончились карты'
+2026-08-09 09:24:14.771 [INFO] [Exilingo.Main] Translation completed: text='нет, у тебя кончились карты' provider='Google Translate' direction=None
+2026-08-09 09:24:14.771 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='richardcainswildride' text='нет, у тебя кончились карты'
+2026-08-09 09:24:31.780 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='SummonRagingRakushi' text='If you run white maps you might wanna put a few points into the map nodes'
+2026-08-09 09:24:31.780 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='SummonRagingRakushi' text='If you run white maps you might wanna put a few points into the map nodes' queue_before=0
+2026-08-09 09:24:31.780 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='SummonRagingRakushi'
+2026-08-09 09:24:31.780 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='If you run white maps you might wanna put a few points into the map nodes'
+2026-08-09 09:24:31.780 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='If you run white maps you might wanna put a few points into the map nodes'
+2026-08-09 09:24:32.426 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=645.1 result='Если вы используете белые карты, возможно, вы захотите добавить несколько точек в узлы карты.'
+2026-08-09 09:24:32.426 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=645.9 original='If you run white maps you might wanna put a few points into the map nodes' result='Если вы используете белые карты, возможно, вы захотите добавить несколько точек в узлы карты.'
+2026-08-09 09:24:32.426 [INFO] [Exilingo.Main] Translation completed: text='Если вы используете белые карты, возможно, вы захотите добавить несколько точек в узлы карты.' provider='Google Translate' direction=None
+2026-08-09 09:24:32.426 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<RUSH2B> SummonRagingRakushi' text='Если вы используете белые карты, возможно, вы захотите добавить несколько точек в узлы карты.'
+2026-08-09 09:24:35.124 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='why the fuck is your name Richard'
+2026-08-09 09:24:35.124 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='why the fuck is your name Richard' queue_before=0
+2026-08-09 09:24:35.125 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:24:35.125 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='why the fuck is your name Richard'
+2026-08-09 09:24:35.125 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='why the fuck is your name Richard'
+2026-08-09 09:24:36.068 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=943.8 result='какого черта тебя зовут Ричард'
+2026-08-09 09:24:36.068 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=944.1 original='why the fuck is your name Richard' result='какого черта тебя зовут Ричард'
+2026-08-09 09:24:36.068 [INFO] [Exilingo.Main] Translation completed: text='какого черта тебя зовут Ричард' provider='Google Translate' direction=None
+2026-08-09 09:24:36.068 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='какого черта тебя зовут Ричард'
+2026-08-09 09:24:42.356 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='richardcainswildride' text='wym'
+2026-08-09 09:24:42.356 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='richardcainswildride' text='wym' queue_before=0
+2026-08-09 09:24:42.356 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='richardcainswildride'
+2026-08-09 09:24:42.356 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='wym'
+2026-08-09 09:24:42.356 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='wym'
+2026-08-09 09:24:42.875 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=518.4 result='Вим'
+2026-08-09 09:24:42.875 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=518.7 original='wym' result='Вим'
+2026-08-09 09:24:42.875 [INFO] [Exilingo.Main] Translation completed: text='Вим' provider='Google Translate' direction=None
+2026-08-09 09:24:42.875 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='richardcainswildride' text='Вим'
+2026-08-09 09:24:45.485 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='im Richard'
+2026-08-09 09:24:45.485 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='im Richard' queue_before=0
+2026-08-09 09:24:45.485 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:24:45.485 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='im Richard'
+2026-08-09 09:24:45.485 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='im Richard'
+2026-08-09 09:24:46.355 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=869.4 result='я Ричард'
+2026-08-09 09:24:46.355 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=869.7 original='im Richard' result='я Ричард'
+2026-08-09 09:24:46.355 [INFO] [Exilingo.Main] Translation completed: text='я Ричард' provider='Google Translate' direction=None
+2026-08-09 09:24:46.355 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='я Ричард'
+2026-08-09 09:24:48.619 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='patented'
+2026-08-09 09:24:48.619 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='patented' queue_before=0
+2026-08-09 09:24:48.619 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:24:48.619 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='patented'
+2026-08-09 09:24:48.619 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='patented'
+2026-08-09 09:24:49.443 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=823.7 result='запатентованный'
+2026-08-09 09:24:49.443 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=824.0 original='patented' result='запатентованный'
+2026-08-09 09:24:49.443 [INFO] [Exilingo.Main] Translation completed: text='запатентованный' provider='Google Translate' direction=None
+2026-08-09 09:24:49.443 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='запатентованный'
+2026-08-09 09:24:50.670 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='InfHenrik_MercBAIT' text='gotta farm some maps then. Anyone got a decent map farm strats? Just for a load of t16s?'
+2026-08-09 09:24:50.670 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='InfHenrik_MercBAIT' text='gotta farm some maps then. Anyone got a decent map farm strats? Just for a load of t16s?' queue_before=0
+2026-08-09 09:24:50.670 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='InfHenrik_MercBAIT'
+2026-08-09 09:24:50.671 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='gotta farm some maps then. Anyone got a decent map farm strats? Just for a load of t16s?'
+2026-08-09 09:24:50.671 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='gotta farm some maps then. Anyone got a decent map farm strats? Just for a load of t16s?'
+2026-08-09 09:24:51.666 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=995.1 result='тогда надо фармить карты. У кого-нибудь есть приличная карта со стратегиями фарма? Только ради т16?'
+2026-08-09 09:24:51.666 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=995.5 original='gotta farm some maps then. Anyone got a decent map farm strats? Just for a load of t16s?' result='тогда надо фармить карты. У кого-нибудь есть приличная карта со стратегиями фарма? Только ради т16?'
+2026-08-09 09:24:51.666 [INFO] [Exilingo.Main] Translation completed: text='тогда надо фармить карты. У кого-нибудь есть приличная карта со стратегиями фарма? Только ради т16?' provider='Google Translate' direction=None
+2026-08-09 09:24:51.666 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<VikiNG> InfHenrik_MercBAIT' text='тогда надо фармить карты. У кого-нибудь есть приличная карта со стратегиями фарма? Только ради т16?'
+2026-08-09 09:25:04.165 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='richardcainswildride' text='my friends name is richard cain'
+2026-08-09 09:25:04.165 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='richardcainswildride' text='my friends name is richard cain' queue_before=0
+2026-08-09 09:25:04.165 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='richardcainswildride'
+2026-08-09 09:25:04.165 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='my friends name is richard cain'
+2026-08-09 09:25:04.165 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='my friends name is richard cain'
+2026-08-09 09:25:04.362 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='в' channel=local prefix=''
+2026-08-09 09:25:04.362 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='local' sender='You' text='в' queue_before=0
+2026-08-09 09:25:04.657 [WARNING] [Exilingo.TranslationManager] provider failed: provider='google' elapsed_ms=491.3 error='my friends name is richard cain --> No translation was found using the current translator. Try another translator?'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 242, in _process_context
+    translated = translator.translate(normalized)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\providers\google_translate.py", line 63, in translate
+    return self._translator.translate(text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\deep_translator\google.py", line 84, in translate
+    raise TranslationNotFound(text)
+deep_translator.exceptions.TranslationNotFound: my friends name is richard cain --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:25:04.659 [ERROR] [Exilingo.TranslationManager] translation failed: direction=None elapsed_ms=493.4 original='my friends name is richard cain' error='Все провайдеры маршрута завершились ошибкой: google: my friends name is richard cain --> No translation was found using the current translator. Try another translator?'
+Traceback (most recent call last):
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 91, in _worker_loop
+    self._process_context(context)
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 355, in _process_context
+    raise RuntimeError(
+RuntimeError: Все провайдеры маршрута завершились ошибкой: google: my friends name is richard cain --> No translation was found using the current translator. Try another translator?
+2026-08-09 09:25:04.659 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['google'] source='ru' target='en' channel='local' sender='You'
+2026-08-09 09:25:04.659 [ERROR] [Exilingo.Main] Translation failed: original='my friends name is richard cain' error='Все провайдеры маршрута завершились ошибкой: google: my friends name is richard cain --> No translation was found using the current translator. Try another translator?' direction=None
+2026-08-09 09:25:04.659 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='ru' target='en' text='в'
+2026-08-09 09:25:04.660 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction='outgoing' language=ru->en text='в'
+2026-08-09 09:25:05.138 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=478.0 result='V'
+2026-08-09 09:25:05.138 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction='outgoing' source='ru' target='en' elapsed_ms=478.9 original='в' result='V'
+2026-08-09 09:25:05.138 [INFO] [Exilingo.Main] Translation completed: text='V' provider='Google Translate' direction='outgoing'
+2026-08-09 09:25:05.138 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): 'V'
+2026-08-09 09:25:05.651 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
+2026-08-09 09:25:05.652 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='AngelicaHart' text='we are all richard'
+2026-08-09 09:25:05.652 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='AngelicaHart' text='we are all richard' queue_before=0
+2026-08-09 09:25:05.652 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='AngelicaHart'
+2026-08-09 09:25:05.652 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='SaneAndChiLL' text='wtb 20 incursion scarabs'
+2026-08-09 09:25:05.652 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='we are all richard'
+2026-08-09 09:25:05.652 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='SaneAndChiLL' text='wtb 20 incursion scarabs' queue_before=0
+2026-08-09 09:25:05.652 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='we are all richard'
+2026-08-09 09:25:05.676 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='HaveAreNiceDay' text='V'
+2026-08-09 09:25:05.676 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='HaveAreNiceDay' text='V' queue_before=1
+2026-08-09 09:25:06.708 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1055.2 result='мы все Ричард'
+2026-08-09 09:25:06.708 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1055.6 original='we are all richard' result='мы все Ричард'
+2026-08-09 09:25:06.708 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='SaneAndChiLL'
+2026-08-09 09:25:06.708 [INFO] [Exilingo.Main] Translation completed: text='мы все Ричард' provider='Google Translate' direction=None
+2026-08-09 09:25:06.708 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='wtb 20 incursion scarabs'
+2026-08-09 09:25:06.708 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='AngelicaHart' text='мы все Ричард'
+2026-08-09 09:25:06.708 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='wtb 20 incursion scarabs'
+2026-08-09 09:25:07.853 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=1144.8 result='wtb 20 скарабеев вторжения'
+2026-08-09 09:25:07.853 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1145.2 original='wtb 20 incursion scarabs' result='wtb 20 скарабеев вторжения'
+2026-08-09 09:25:07.853 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='HaveAreNiceDay'
+2026-08-09 09:25:07.853 [INFO] [Exilingo.Main] Translation completed: text='wtb 20 скарабеев вторжения' provider='Google Translate' direction=None
+2026-08-09 09:25:07.853 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='V'
+2026-08-09 09:25:07.853 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='SaneAndChiLL' text='wtb 20 скарабеев вторжения'
+2026-08-09 09:25:07.853 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='V'
+2026-08-09 09:25:08.335 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=482.0 result='В'
+2026-08-09 09:25:08.336 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=482.4 original='V' result='В'
+2026-08-09 09:25:08.336 [INFO] [Exilingo.Main] Translation completed: text='В' provider='Google Translate' direction=None
+2026-08-09 09:25:08.336 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<GRINED> HaveAreNiceDay' text='В'
+2026-08-09 09:25:12.899 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='ChromeSlave' text='wtf richard'
+2026-08-09 09:25:12.899 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='ChromeSlave' text='wtf richard' queue_before=0
+2026-08-09 09:25:12.899 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='ChromeSlave'
+2026-08-09 09:25:12.899 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='wtf richard'
+2026-08-09 09:25:12.899 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='wtf richard'
+2026-08-09 09:25:13.788 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=888.4 result='черт возьми, Ричард'
+2026-08-09 09:25:13.788 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=888.6 original='wtf richard' result='черт возьми, Ричард'
+2026-08-09 09:25:13.788 [INFO] [Exilingo.Main] Translation completed: text='черт возьми, Ричард' provider='Google Translate' direction=None
+2026-08-09 09:25:13.788 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='ChromeSlave' text='черт возьми, Ричард'
+2026-08-09 09:25:31.560 [INFO] [Exilingo.Main] Incoming chat message: channel='global' sender='PimpnastyHC' text='Today boys is butcher day, quarter of my meat herd going to the butcher'
+2026-08-09 09:25:31.560 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='global' sender='PimpnastyHC' text='Today boys is butcher day, quarter of my meat herd going to the butcher' queue_before=0
+2026-08-09 09:25:31.560 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='global' sender='PimpnastyHC'
+2026-08-09 09:25:31.561 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='Today boys is butcher day, quarter of my meat herd going to the butcher'
+2026-08-09 09:25:31.561 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Today boys is butcher day, quarter of my meat herd going to the butcher'
+2026-08-09 09:25:32.513 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=952.6 result='Ребята, сегодня день мясника, четверть моего мясного стада пойдет к мяснику.'
+2026-08-09 09:25:32.513 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=953.0 original='Today boys is butcher day, quarter of my meat herd going to the butcher' result='Ребята, сегодня день мясника, четверть моего мясного стада пойдет к мяснику.'
+2026-08-09 09:25:32.514 [INFO] [Exilingo.Main] Translation completed: text='Ребята, сегодня день мясника, четверть моего мясного стада пойдет к мяснику.' provider='Google Translate' direction=None
+2026-08-09 09:25:32.514 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='PimpnastyHC' text='Ребята, сегодня день мясника, четверть моего мясного стада пойдет к мяснику.'
+2026-08-09 09:25:34.362 [INFO] [Exilingo.Main] Incoming chat message: channel='global' sender='PimpnastyHC' text='MONEY MONEY MONEY'
+2026-08-09 09:25:34.362 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='global' sender='PimpnastyHC' text='MONEY MONEY MONEY' queue_before=0
+2026-08-09 09:25:34.362 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='global' sender='PimpnastyHC'
+2026-08-09 09:25:34.363 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='MONEY MONEY MONEY'
+2026-08-09 09:25:34.363 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='MONEY MONEY MONEY'
+2026-08-09 09:25:35.195 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=832.4 result='ДЕНЬГИ ДЕНЬГИ ДЕНЬГИ'
+2026-08-09 09:25:35.196 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=832.7 original='MONEY MONEY MONEY' result='ДЕНЬГИ ДЕНЬГИ ДЕНЬГИ'
+2026-08-09 09:25:35.196 [INFO] [Exilingo.Main] Translation completed: text='ДЕНЬГИ ДЕНЬГИ ДЕНЬГИ' provider='Google Translate' direction=None
+2026-08-09 09:25:35.196 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='PimpnastyHC' text='ДЕНЬГИ ДЕНЬГИ ДЕНЬГИ'
+2026-08-09 09:25:51.091 [INFO] [Exilingo.Main] Incoming chat message: channel='global' sender='PimpnastyHC' text='next weekend cattle auction'
+2026-08-09 09:25:51.091 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='global' sender='PimpnastyHC' text='next weekend cattle auction' queue_before=0
+2026-08-09 09:25:51.092 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='global' sender='PimpnastyHC'
+2026-08-09 09:25:51.092 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='next weekend cattle auction'
+2026-08-09 09:25:51.092 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='next weekend cattle auction'
+2026-08-09 09:25:51.752 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=659.4 result='аукцион крупного рогатого скота на следующих выходных'
+2026-08-09 09:25:51.752 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=659.8 original='next weekend cattle auction' result='аукцион крупного рогатого скота на следующих выходных'
+2026-08-09 09:25:51.752 [INFO] [Exilingo.Main] Translation completed: text='аукцион крупного рогатого скота на следующих выходных' provider='Google Translate' direction=None
+2026-08-09 09:25:51.752 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='PimpnastyHC' text='аукцион крупного рогатого скота на следующих выходных'
+2026-08-09 09:25:55.951 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='kurbagaa' text='Радужный самоцвет 5x'
+2026-08-09 09:25:55.952 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='kurbagaa' text='Радужный самоцвет 5x' queue_before=0
+2026-08-09 09:25:55.952 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='kurbagaa'
+2026-08-09 09:25:55.952 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='Радужный самоцвет 5x'
+2026-08-09 09:25:55.952 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='Радужный самоцвет 5x'
+2026-08-09 09:25:56.670 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=718.7 result='Радужный самоцвет 5x'
+2026-08-09 09:25:56.671 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=719.0 original='Радужный самоцвет 5x' result='Радужный самоцвет 5x'
+2026-08-09 09:25:56.671 [INFO] [Exilingo.Main] Translation completed: text='Радужный самоцвет 5x' provider='Google Translate' direction=None
+2026-08-09 09:25:56.671 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='kurbagaa' text='Радужный самоцвет 5x'
+2026-08-09 09:26:01.453 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='MorbidCursed' text='gl'
+2026-08-09 09:26:01.453 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='MorbidCursed' text='gl' queue_before=0
+2026-08-09 09:26:01.454 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='MorbidCursed'
+2026-08-09 09:26:01.455 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='gl'
+2026-08-09 09:26:01.455 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='gl'
+2026-08-09 09:26:01.936 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=480.4 result='гл'
+2026-08-09 09:26:01.936 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=481.9 original='gl' result='гл'
+2026-08-09 09:26:01.936 [INFO] [Exilingo.Main] Translation completed: text='гл' provider='Google Translate' direction=None
+2026-08-09 09:26:01.936 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='<BELT> MorbidCursed' text='гл'
+2026-08-09 09:26:03.286 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:03.286 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет' queue_before=0
+2026-08-09 09:26:03.286 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='kurbagaa'
+2026-08-09 09:26:03.286 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='en' target='ru' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:03.287 [INFO] [Exilingo.TranslationManager] translation skipped: detected='ru' expected_source='en' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:03.287 [INFO] [Exilingo.TranslationManager] translation completed: provider=None direction=None source='ru' target='ru' elapsed_ms=0.2 original='Глаз хранителя, Радужный самоцвет' result='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:03.287 [INFO] [Exilingo.Main] Translation completed: text='Глаз хранителя, Радужный самоцвет' provider=None direction=None
+2026-08-09 09:26:03.287 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:08.792 [INFO] [Exilingo.Main] Incoming chat message: channel='trade' sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:08.792 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='trade' sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет' queue_before=0
+2026-08-09 09:26:08.792 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google'] source='en' target='ru' channel='trade' sender='kurbagaa'
+2026-08-09 09:26:08.792 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='en' target='ru' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:08.793 [INFO] [Exilingo.TranslationManager] translation skipped: detected='ru' expected_source='en' text='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:08.793 [INFO] [Exilingo.TranslationManager] translation completed: provider=None direction=None source='ru' target='ru' elapsed_ms=0.2 original='Глаз хранителя, Радужный самоцвет' result='Глаз хранителя, Радужный самоцвет'
+2026-08-09 09:26:08.793 [INFO] [Exilingo.Main] Translation completed: text='Глаз хранителя, Радужный самоцвет' provider=None direction=None
+2026-08-09 09:26:08.793 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='kurbagaa' text='Глаз хранителя, Радужный самоцвет'
