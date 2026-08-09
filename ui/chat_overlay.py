@@ -7,17 +7,8 @@ import ctypes
 
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QTextEdit,
-    QLineEdit,
-    QPushButton,
-    QLabel,
-    QFrame,
-    QApplication,
-    QSizeGrip,
-    QComboBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
+    QLabel, QFrame, QApplication, QSizeGrip, QComboBox,
 )
 
 GWL_EXSTYLE = -20
@@ -35,12 +26,8 @@ CHAT_CHANNELS = [
 ]
 CHAT_PREFIXES = {prefix for _, _, prefix in CHAT_CHANNELS if prefix}
 CHAT_NAME_COLORS = {
-    "": "#33CC66",  # Local - green
-    "#": "#FF3333",  # Global - red
-    "$": "#FF9933",  # Trade - orange
-    "%": "#6699FF",  # Party - blue
-    "@": "#CC66FF",  # Whisper - purple
-    "&": "#A0A0A0",  # Guild - gray
+    "": "#33CC66", "#": "#FF3333", "$": "#FF9933",
+    "%": "#6699FF", "@": "#CC66FF", "&": "#A0A0A0",
 }
 
 
@@ -51,7 +38,6 @@ class GlobalHotkeyListener(QObject):
         super().__init__()
         try:
             import keyboard
-
             keyboard.add_hotkey("enter", self._on_enter_pressed)
         except Exception as e:
             print(f"[HotkeyError] Не удалось зарегистрировать клавишу: {e}")
@@ -75,85 +61,59 @@ class ChatOverlay(QWidget):
         self.set_input_mode(False)
 
     def init_ui(self):
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.resize(500, 250)
         self.setMinimumSize(280, 120)
-
         self.main_frame = QFrame(self)
         self.main_frame.setObjectName("MainFrame")
-
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.main_frame)
-
         self.frame_layout = QVBoxLayout(self.main_frame)
         self.frame_layout.setContentsMargins(6, 6, 6, 6)
-
         self.header_widget = QWidget(self)
         header_layout = QHBoxLayout(self.header_widget)
         header_layout.setContentsMargins(4, 2, 4, 4)
-
         self.title_label = QLabel("<b>EXILINGO CHAT</b>", self)
         self.title_label.setStyleSheet("color: #AF9870; font-size: 11px;")
-
         self.settings_button = QPushButton("⚙", self)
         self.settings_button.setObjectName("HeaderBtn")
         self.settings_button.setFixedSize(22, 22)
         self.settings_button.setToolTip("Настройки Exilingo")
         self.settings_button.clicked.connect(self.settings_requested.emit)
-
         self.close_button = QPushButton("✕", self)
         self.close_button.setObjectName("HeaderBtn")
         self.close_button.setFixedSize(22, 22)
         self.close_button.setToolTip("Закрыть оверлей")
         self.close_button.clicked.connect(self.close_requested.emit)
-
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.settings_button)
         header_layout.addWidget(self.close_button)
-
         self.chat_history = QTextEdit(self)
         self.chat_history.setReadOnly(True)
-
         self.input_widget = QWidget(self)
         input_layout = QHBoxLayout(self.input_widget)
         input_layout.setContentsMargins(0, 4, 0, 0)
-
         self.channel_combo = QComboBox(self)
         self.channel_combo.setMinimumWidth(150)
-        self.channel_combo.setToolTip(
-            "Выберите канал, в который будет отправлено сообщение"
-        )
+        self.channel_combo.setToolTip("Выберите канал, в который будет отправлено сообщение")
         for channel_id, title, prefix in CHAT_CHANNELS:
             self.channel_combo.addItem(title, channel_id)
         self.channel_combo.setCurrentIndex(0)
         self.channel_combo.currentIndexChanged.connect(self._on_channel_changed)
-
         self.input_field = QLineEdit(self)
         self.input_field.setPlaceholderText("Введите сообщение...")
         self.input_field.returnPressed.connect(self._on_send)
-
         self.send_btn = QPushButton("Отправить", self)
         self.send_btn.clicked.connect(self._on_send)
-
         self.size_grip = QSizeGrip(self)
         self.size_grip.setFixedSize(16, 16)
-
         input_layout.addWidget(self.channel_combo)
         input_layout.addWidget(self.input_field)
         input_layout.addWidget(self.send_btn)
-        input_layout.addWidget(
-            self.size_grip,
-            0,
-            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight,
-        )
-
+        input_layout.addWidget(self.size_grip, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
         self.frame_layout.addWidget(self.header_widget)
         self.frame_layout.addWidget(self.chat_history)
         self.frame_layout.addWidget(self.input_widget)
@@ -164,18 +124,13 @@ class ChatOverlay(QWidget):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-
             geo = data.get("overlay_geometry", {})
             if not geo:
                 overlay = data.get("overlay", {})
                 if isinstance(overlay, dict):
                     geo = overlay.get("geometry", {})
-
             if all(key in geo for key in ("x", "y", "w", "h")):
-                self.setGeometry(
-                    int(geo["x"]), int(geo["y"]), int(geo["w"]), int(geo["h"])
-                )
-
+                self.setGeometry(int(geo["x"]), int(geo["y"]), int(geo["w"]), int(geo["h"]))
             if "font_size" in data:
                 self.font_size = int(data["font_size"])
             else:
@@ -193,18 +148,15 @@ class ChatOverlay(QWidget):
                     config_data = json.load(f)
             except Exception:
                 config_data = {}
-
         geometry = {"x": self.x(), "y": self.y(), "w": self.width(), "h": self.height()}
         config_data["overlay_geometry"] = geometry
         config_data["font_size"] = self.font_size
-
         overlay = config_data.setdefault("overlay", {})
         if not isinstance(overlay, dict):
             overlay = {}
             config_data["overlay"] = overlay
         overlay["geometry"] = geometry
         overlay["font_size"] = self.font_size
-
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=4, ensure_ascii=False)
@@ -224,16 +176,12 @@ class ChatOverlay(QWidget):
     def set_input_mode(self, enabled: bool):
         if self.is_input_mode and not enabled:
             self.save_config()
-
         self.is_input_mode = enabled
         self._set_click_through(not enabled)
-
         if enabled:
             self.header_widget.show()
             self.input_widget.show()
-            self.chat_history.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded
-            )
+            self.chat_history.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.main_frame.setStyleSheet(
                 f"""QFrame#MainFrame {{ background-color: rgba(12,12,12,225); border: 1px solid #4A3B2C; border-radius: 2px; }} QTextEdit {{ background: transparent; color: #E0E0E0; border: none; font-family: Segoe UI; font-size: {self.font_size}px; }} QLineEdit {{ background: rgba(0,0,0,200); color: white; border: 1px solid #5C4A38; border-radius: 2px; padding: 4px; font-size: {self.font_size}px; }} QComboBox {{ background: rgba(0,0,0,200); color: white; border: 1px solid #5C4A38; border-radius: 2px; padding: 4px; font-size: {self.font_size}px; }} QComboBox QAbstractItemView {{ background: #17130F; color: white; border: 1px solid #5C4A38; selection-background-color: #3D3227; selection-color: #E8D4B3; }} QPushButton {{ background:#2B231B; color:#AF9870; border:1px solid #5C4A38; border-radius:2px; padding:4px 10px; font-weight:bold; }} QPushButton#HeaderBtn {{ padding: 0px; font-size: 14px; }} QPushButton:hover {{ background:#3D3227; color:#E8D4B3; }}"""
             )
@@ -242,9 +190,7 @@ class ChatOverlay(QWidget):
         else:
             self.header_widget.hide()
             self.input_widget.hide()
-            self.chat_history.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-            )
+            self.chat_history.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             self.main_frame.setStyleSheet(
                 f"""QFrame#MainFrame {{ background: transparent; border:none; }} QTextEdit {{ background: transparent; color:#E0E0E0; border:none; font-family: Segoe UI; font-size:{self.font_size}px; }}"""
             )
@@ -275,11 +221,7 @@ class ChatOverlay(QWidget):
             self._old_pos = event.globalPosition().toPoint()
 
     def mouseMoveEvent(self, event):
-        if (
-            self.is_input_mode
-            and self._old_pos is not None
-            and event.buttons() == Qt.MouseButton.LeftButton
-        ):
+        if self.is_input_mode and self._old_pos is not None and event.buttons() == Qt.MouseButton.LeftButton:
             delta = event.globalPosition().toPoint() - self._old_pos
             self.move(self.x() + delta.x(), self.y() + delta.y())
             self._old_pos = event.globalPosition().toPoint()
@@ -303,12 +245,27 @@ class ChatOverlay(QWidget):
         self.input_field.setCursorPosition(len(self.input_field.text()))
 
     def _prepare_outgoing_message(self, text: str) -> str:
+        """Готовит финальный текст сообщения для выбранного игрового канала."""
         text = text.strip()
         if not text:
             return ""
+
+        channel_id = self.channel_combo.currentData()
+
+        # Local не имеет специального символа. В нормальном сценарии поле
+        # уже очищено при выборе Local, но здесь дополнительно удаляем
+        # потенциально оставшийся префикс непосредственно перед отправкой.
+        if channel_id == "local":
+            if text[0] in CHAT_PREFIXES:
+                text = text[1:].lstrip()
+            return text
+
+        # Для остальных каналов пользовательский/автоматический префикс
+        # сохраняется как есть; если его нет — добавляем префикс выбранного
+        # канала.
         if text[0] in CHAT_PREFIXES:
             return text
-        channel_id = self.channel_combo.currentData()
+
         prefix = self._channel_prefix(channel_id)
         return prefix + text if prefix else text
 
@@ -336,28 +293,22 @@ class ChatOverlay(QWidget):
         if not text:
             self.set_input_mode(False)
             return
-
         channel_id = self.channel_combo.currentData()
         prepared_text = self._prepare_outgoing_message(text)
         if not prepared_text:
             self.set_input_mode(False)
             return
-
         print("[ChatOverlay] Исходящее сообщение:", prepared_text)
         self.send_message_requested.emit(prepared_text)
-
         if channel_id == "whisper":
             self.input_field.setText(self._whisper_input_after_send(prepared_text))
         else:
             prefix = self._channel_prefix(channel_id)
             self.input_field.setText(f"{prefix}" if prefix else "")
-
         self.input_field.setCursorPosition(len(self.input_field.text()))
         self.set_input_mode(False)
 
-    def add_message(
-        self, channel_prefix: str, sender: str, text: str, is_translated: bool = True
-    ):
+    def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
         name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
         html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:{name_color}; font-weight:bold;">{channel_prefix}{sender}: </span><span style="color:{text_color};">{text}</span></div>"""
@@ -367,14 +318,10 @@ class ChatOverlay(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ChatOverlay()
-    window.send_message_requested.connect(
-        lambda text: print(f"[TEST] Будет отправлено в PoE: {text}")
-    )
+    window.send_message_requested.connect(lambda text: print(f"[TEST] Будет отправлено в PoE: {text}"))
     window.add_message("#", "DageTheEvil", "Продаю тому, кто предложит больше всех")
     window.add_message("#", "Prawny", "Почему 67 — это смешно?")
-    window.add_message(
-        "#", "SummonRagingSychoSid", "SRS на самом деле требуют нажатия кнопок"
-    )
+    window.add_message("#", "SummonRagingSychoSid", "SRS на самом деле требуют нажатия кнопок")
     window.show()
     hotkey_listener = GlobalHotkeyListener()
     hotkey_listener.toggle_requested.connect(window.toggle_mode)
