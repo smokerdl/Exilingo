@@ -14,6 +14,7 @@ class GeminiTranslator(BaseTranslator):
     """
 
     name = "Gemini"
+    REQUEST_TIMEOUT_MS = 15_000
 
     def __init__(
         self,
@@ -49,7 +50,10 @@ class GeminiTranslator(BaseTranslator):
             ) from exc
 
         self._types = types
-        self._client = genai.Client(api_key=self.api_key)
+        self._client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.REQUEST_TIMEOUT_MS),
+        )
 
     def translate(
         self,
