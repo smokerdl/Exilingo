@@ -353,14 +353,17 @@ class ExilingoApp:
 
         if is_outgoing:
             prepared_text = context.display_text or context.original_text
+            is_local = str(context.channel or "").strip().lower() == "local"
 
             self.logger.info(
-                "OUTGOING -> GameChatSender.send(): %r",
+                "OUTGOING -> GameChatSender.send(): %r local=%s",
                 prepared_text,
+                is_local,
             )
 
             sent = self.game_chat_sender.send(
                 prepared_text,
+                local=is_local,
             )
 
             if not sent:
@@ -421,13 +424,17 @@ class ExilingoApp:
         }
 
         if is_outgoing:
+            is_local = str(context.channel or "").strip().lower() == "local"
+
             self.logger.warning(
-                "OUTGOING FALLBACK -> GameChatSender.send(): %r",
+                "OUTGOING FALLBACK -> GameChatSender.send(): %r local=%s",
                 context.original_text,
+                is_local,
             )
 
             sent = self.game_chat_sender.send(
                 context.original_text,
+                local=is_local,
             )
 
             if not sent:
