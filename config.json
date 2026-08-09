@@ -27,7 +27,7 @@
         "gemini": {
             "enabled": false,
             "api_key": "",
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3.5-flash-lite",
             "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru"
@@ -59,21 +59,27 @@
     },
     "routing": {
         "global": [
-            "google"
+            "google",
+            "gemini"
         ],
         "local": [
-            "google"
+            "google",
+            "gemini"
         ],
         "trade": [
-            "google"
+            "google",
+            "gemini"
         ],
         "party": [
+            "gemini",
             "google"
         ],
         "guild": [
-            "google"
+            "google",
+            "gemini"
         ],
         "whisper": [
+            "gemini",
             "google"
         ]
     },
