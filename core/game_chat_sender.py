@@ -20,6 +20,7 @@ INPUT_KEYBOARD = 1
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 
+VK_BACK = 0x08
 VK_CONTROL = 0x11
 VK_V = 0x56
 VK_RETURN = 0x0D
@@ -34,7 +35,13 @@ class GameChatSender:
     """
     Физическая отправка готового сообщения в игровой чат Path of Exile.
 
-    Pipeline:
+    Для Local есть особенность PoE: после предыдущего сообщения игра
+    сохраняет последний специальный символ канала в строке ввода.
+    Если новое сообщение Local не содержит символа, он не заменяется,
+    а остаётся перед текстом. Поэтому перед вставкой Local-сообщения
+    мы дополнительно нажимаем Backspace один раз после получения фокуса.
+
+    Pipeline для обычных каналов:
 
         координата
           ↓
@@ -48,8 +55,21 @@ class GameChatSender:
           ↓
         Enter
 
-    Этот класс намеренно не знает ничего о переводах и каналах.
-    Он получает уже полностью подготовленный текст.
+    Pipeline для Local:
+
+        координата
+          ↓
+        mouse move
+          ↓
+        left click
+          ↓
+        Backspace
+          ↓
+        Clipboard
+          ↓
+        Ctrl+V
+          ↓
+        Enter
     """
 
     DEFAULT_CLICK_DELAY = 0.10
@@ -162,11 +182,12 @@ class GameChatSender:
         text: str,
         *,
         point: Optional[Tuple[int, int]] = None,
+        local: bool = False,
     ) -> bool:
         """Отправляет готовый текст в игровой чат."""
 
         self._debug("========== BEGIN SEND ==========")
-        self._debug(f"raw text={text!r}")
+        self._debug(f"raw text={text!r} local={local}")
 
         if not text:
             self._debug("ABORT: пустое сообщение")
@@ -206,7 +227,7 @@ class GameChatSender:
         self._debug_window_at_point(x, y)
 
         try:
-            self._debug("STAGE 1/5: SetCursorPos")
+            self._debug("STAGE 1/6: SetCursorPos")
             self._move_cursor(x, y)
 
             cursor = ctypes.wintypes.POINT()
@@ -217,24 +238,33 @@ class GameChatSender:
 
             time.sleep(self.DEFAULT_CLICK_DELAY)
 
-            self._debug("STAGE 2/5: left mouse click")
+            self._debug("STAGE 2/6: left mouse click")
             self._click_at_current_position()
 
             time.sleep(self.DEFAULT_CLICK_DELAY)
             self._debug_foreground_window("after click")
 
-            self._debug("STAGE 3/5: prepare Clipboard")
+            if local:
+                self._debug(
+                    "STAGE 3/6: Local channel -> Backspace to clear retained channel prefix"
+                )
+                self._press_key(VK_BACK)
+                time.sleep(self.DEFAULT_PASTE_DELAY)
+            else:
+                self._debug("STAGE 3/6: no Local cleanup required")
+
+            self._debug("STAGE 4/6: prepare Clipboard")
             self._set_clipboard_text(text)
             self._debug("Clipboard prepared successfully")
 
             time.sleep(self.DEFAULT_PASTE_DELAY)
 
-            self._debug("STAGE 4/5: Ctrl+V")
+            self._debug("STAGE 5/6: Ctrl+V")
             self._paste()
 
             time.sleep(self.DEFAULT_PASTE_DELAY)
 
-            self._debug("STAGE 5/5: Enter")
+            self._debug("STAGE 6/6: Enter")
             self._press_key(VK_RETURN)
 
             time.sleep(self.DEFAULT_ENTER_DELAY)
@@ -438,7 +468,7 @@ class GameChatSender:
             if handle:
                 kernel32.GlobalFree(handle)
 
-    # ========================================================
+    # ============================================================
 
     @classmethod
     def _paste(
