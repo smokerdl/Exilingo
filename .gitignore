@@ -13,3 +13,6 @@ __pycache__/
 # Настройки редакторов
 .vscode/
 .idea/
+
+# Local secrets
+secrets.txt

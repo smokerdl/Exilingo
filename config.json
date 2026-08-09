@@ -25,8 +25,7 @@
             "target_language": "ru"
         },
         "gemini": {
-            "enabled": false,
-            "api_key": "",
+            "enabled": true,
             "model": "gemini-3.5-flash-lite",
             "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
@@ -34,7 +33,6 @@
         },
         "groq": {
             "enabled": false,
-            "api_key": "",
             "model": "",
             "system_prompt": "",
             "source_language": "en",
@@ -42,7 +40,6 @@
         },
         "openrouter": {
             "enabled": false,
-            "api_key": "",
             "model": "",
             "system_prompt": "",
             "source_language": "en",
@@ -68,12 +65,14 @@
             "google"
         ],
         "party": [
+            "gemini",
             "google"
         ],
         "guild": [
             "google"
         ],
         "whisper": [
+            "gemini",
             "google"
         ]
     },

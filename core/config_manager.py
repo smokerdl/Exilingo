@@ -5,6 +5,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .secrets_manager import SecretsManager
+
 
 CONFIG_FILE = "config.json"
 
@@ -72,7 +74,6 @@ DEFAULT_CONFIG = {
         # --------------------------------------------------
         "gemini": {
             "enabled": False,
-            "api_key": "",
             "model": "gemini-2.5-flash",
             "system_prompt": (
                 "You are a translator of the Path of Exile game chat. "
@@ -86,7 +87,6 @@ DEFAULT_CONFIG = {
         # --------------------------------------------------
         "groq": {
             "enabled": False,
-            "api_key": "",
             "model": "",
             "system_prompt": "",
             "source_language": "en",
@@ -97,7 +97,6 @@ DEFAULT_CONFIG = {
         # --------------------------------------------------
         "openrouter": {
             "enabled": False,
-            "api_key": "",
             "model": "",
             "system_prompt": "",
             "source_language": "en",
@@ -191,6 +190,7 @@ class ConfigManager:
         filename: str = CONFIG_FILE,
     ):
         self.filename = Path(filename)
+        self.secrets = SecretsManager(self.filename.with_name("secrets.txt"))
 
         self.data = deepcopy(DEFAULT_CONFIG)
 
@@ -225,6 +225,13 @@ class ConfigManager:
             if not isinstance(loaded, dict):
                 print("[Config] Ошибка: config.json должен содержать JSON-объект.")
                 return
+
+            providers = loaded.get("providers", {})
+            if isinstance(providers, dict):
+                self.secrets.migrate_from_config(providers)
+                for provider in providers.values():
+                    if isinstance(provider, dict):
+                        provider.pop("api_key", None)
 
             self._merge_dict(
                 self.data,
@@ -538,15 +545,6 @@ class ConfigManager:
                             "system_prompt",
                             "",
                         ),
-                    )
-                    or ""
-                )
-
-            if "api_key" in defaults:
-                provider["api_key"] = str(
-                    provider.get(
-                        "api_key",
-                        "",
                     )
                     or ""
                 )
@@ -1070,6 +1068,20 @@ class ConfigManager:
         )
 
     # ======================================================
+    # API-ключи (хранятся отдельно от config.json)
+    # ======================================================
+
+    def provider_api_key(self, provider_id: str) -> str:
+        if provider_id not in ("gemini", "groq", "openrouter"):
+            return ""
+        return self.secrets.get(f"{provider_id}_api_key")
+
+    def set_provider_api_key(self, provider_id: str, api_key: str) -> None:
+        if provider_id not in ("gemini", "groq", "openrouter"):
+            raise ValueError(f"Провайдер '{provider_id}' не использует API key.")
+        self.secrets.set(f"{provider_id}_api_key", api_key)
+
+    # ======================================================
     # Языки провайдера
     # ======================================================
 
@@ -1241,6 +1253,8 @@ class ConfigManager:
             provider_id,
             value=deepcopy(providers[provider_id]),
         )
+        if provider_id in ("gemini", "groq", "openrouter"):
+            self.set_provider_api_key(provider_id, "")
 
     # ======================================================
     # Сброс маршрутизации
@@ -1260,6 +1274,8 @@ class ConfigManager:
     def reset_all(self):
 
         self.data = deepcopy(DEFAULT_CONFIG)
+        for provider_id in ("gemini", "groq", "openrouter"):
+            self.set_provider_api_key(provider_id, "")
 
         self.save()
 

@@ -1831,10 +1831,7 @@ class SettingsDialog(QDialog):
                 )
 
                 api_widget.setText(
-                    data.get(
-                        "api_key",
-                        "",
-                    )
+                    config.provider_api_key(provider_id)
                 )
 
         # ----------------------------------------------------
@@ -1989,14 +1986,14 @@ class SettingsDialog(QDialog):
                 data["host"] = self.ollama_host.text().strip()
 
             else:
-                data["api_key"] = (
+                config.set_provider_api_key(
+                    provider_id,
                     getattr(
                         self,
                         f"{provider_id}_api_key",
-                    )
-                    .text()
-                    .strip()
+                    ).text().strip(),
                 )
+                data.pop("api_key", None)
 
             config.set(
                 "providers",
@@ -2235,10 +2232,7 @@ class SettingsDialog(QDialog):
             )
 
             api_widget.setText(
-                defaults.get(
-                    "api_key",
-                    "",
-                )
+                config.provider_api_key(provider_id)
             )
 
     # ========================================================

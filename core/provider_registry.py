@@ -148,7 +148,7 @@ class ProviderRegistry:
         """Создает Gemini с текущими настройками config.json."""
         provider = config.get("providers", "gemini") or {}
 
-        api_key = str(provider.get("api_key", "")).strip()
+        api_key = config.provider_api_key("gemini")
         model = str(provider.get("model", "gemini-3.5-flash-lite")).strip()
         system_prompt = str(provider.get("system_prompt", "")).strip()
 
