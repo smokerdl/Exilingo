@@ -67,7 +67,6 @@ CHAT_CHANNELS = [
 PROVIDER_NAMES = {
     "google": "Google Translate",
     "gemini": "Gemini",
-    "groq": "Groq",
     "openrouter": "OpenRouter",
     "ollama": "Ollama",
 }
@@ -75,7 +74,6 @@ PROVIDER_NAMES = {
 
 AI_PROVIDERS = (
     "gemini",
-    "groq",
     "openrouter",
     "ollama",
 )
@@ -652,43 +650,59 @@ class SettingsDialog(QDialog):
         )
 
         # ----------------------------------------------------
-        # Шрифт
+        # Размер шрифта
         # ----------------------------------------------------
 
         font_group = QGroupBox(
-            "Текст",
+            "Шрифт",
         )
 
         font_form = QFormLayout(
             font_group,
         )
 
-        self.overlay_font_size = QSpinBox()
-        self.overlay_font_size.setRange(
-            6,
-            72,
+        self.font_size = QSpinBox()
+        self.font_size.setRange(
+            8,
+            32,
         )
 
         font_form.addRow(
-            "Размер шрифта:",
-            self.overlay_font_size,
+            "Размер:",
+            self.font_size,
         )
 
         layout.addWidget(
             font_group,
         )
 
-        info = QLabel(
-            "Эти параметры определяют положение, размер "
-            "и размер текста игрового чата в оверлее."
+        # ----------------------------------------------------
+        # Канал исходящих сообщений
+        # ----------------------------------------------------
+
+        outgoing_group = QGroupBox(
+            "Канал исходящих сообщений",
         )
 
-        info.setWordWrap(
-            True,
+        outgoing_form = QFormLayout(
+            outgoing_group,
+        )
+
+        self.outgoing_channel = QComboBox()
+
+        for channel_id, title, prefix in CHAT_CHANNELS:
+            self.outgoing_channel.addItem(
+                title,
+                channel_id,
+            )
+
+        outgoing_form.addRow(
+            "Канал:",
+            self.outgoing_channel,
         )
 
         layout.addWidget(
-            info,
+            outgoing_group,
         )
 
         layout.addStretch()
@@ -699,81 +713,39 @@ class SettingsDialog(QDialog):
         )
 
     # ========================================================
-    # Переводчики
+    # Провайдеры
     # ========================================================
 
     def _build_providers_tab(self):
 
         tab = QWidget()
 
-        main_layout = QHBoxLayout(
-            tab,
-        )
-
-        # ----------------------------------------------------
-        # Список
-        # ----------------------------------------------------
-
-        left_layout = QVBoxLayout()
-
-        left_layout.addWidget(QLabel("Доступные переводчики:"))
+        layout = QHBoxLayout(tab)
 
         self.provider_list = QListWidget()
+        self.provider_stack = QTabWidget()
+        self.provider_pages = {}
 
         self.provider_list.currentItemChanged.connect(
-            self._provider_selection_changed,
+            self._provider_selected,
         )
 
-        left_layout.addWidget(
+        layout.addWidget(
             self.provider_list,
-        )
-
-        main_layout.addLayout(
-            left_layout,
             1,
         )
 
-        # ----------------------------------------------------
-        # Настройки
-        # ----------------------------------------------------
-
-        right_layout = QVBoxLayout()
-
-        self.provider_stack = QTabWidget()
-
-        right_layout.addWidget(
+        layout.addWidget(
             self.provider_stack,
-        )
-
-        main_layout.addLayout(
-            right_layout,
             3,
         )
 
-        self._build_provider_pages()
-
-        self.tabs.addTab(
-            tab,
-            "Переводчики",
-        )
-
-    # ========================================================
-    # Страницы провайдеров
-    # ========================================================
-
-    def _build_provider_pages(self):
-
-        self.provider_pages: Dict[str, QWidget] = {}
-
         # ----------------------------------------------------
-        # Google
+        # Google Translate
         # ----------------------------------------------------
 
         google_page = QWidget()
-
-        google_layout = QVBoxLayout(
-            google_page,
-        )
+        google_layout = QVBoxLayout(google_page)
 
         google_group = QGroupBox(
             "Google Translate",
@@ -783,47 +755,58 @@ class SettingsDialog(QDialog):
             google_group,
         )
 
-        self.google_enabled = QCheckBox()
-
-        google_form.addRow(
-            "Активен:",
-            self.google_enabled,
+        google_enabled = QComboBox()
+        google_enabled.addItem(
+            "Выключен",
+            False,
+        )
+        google_enabled.addItem(
+            "Включен",
+            True,
         )
 
-        self.google_source = QLineEdit()
+        google_form.addRow(
+            "Состояние:",
+            google_enabled,
+        )
+
+        self.google_enabled = google_enabled
+
+        google_source = QLineEdit()
+        google_target = QLineEdit()
 
         google_form.addRow(
             "Язык входящих:",
-            self.google_source,
+            google_source,
         )
-
-        self.google_target = QLineEdit()
 
         google_form.addRow(
             "Перевод входящих:",
-            self.google_target,
+            google_target,
         )
 
-        direction_info = QLabel(
-            "Исходящие сообщения автоматически переводятся "
-            "в обратном направлении. Например: EN → RU для "
-            "входящих и RU → EN для исходящих."
-        )
-
-        direction_info.setWordWrap(
-            True,
-        )
+        self.google_source_language = google_source
+        self.google_target_language = google_target
 
         google_layout.addWidget(
             google_group,
         )
 
+        google_info = QLabel(
+            "Google Translate не требует API key. "
+            "Для исходящих сообщений направление переворачивается автоматически."
+        )
+
+        google_info.setWordWrap(
+            True,
+        )
+
         google_layout.addWidget(
-            direction_info,
+            google_info,
         )
 
         google_reset = QPushButton(
-            "Восстановить настройки по умолчанию",
+            "Сбросить настройки Google Translate",
         )
 
         google_reset.clicked.connect(
@@ -849,7 +832,6 @@ class SettingsDialog(QDialog):
 
         for provider_id, title in (
             ("gemini", "Gemini"),
-            ("groq", "Groq"),
             ("openrouter", "OpenRouter"),
         ):
             page = self._build_ai_provider_page(
@@ -1076,12 +1058,8 @@ class SettingsDialog(QDialog):
             direction_info,
         )
 
-        # ----------------------------------------------------
-        # Reset
-        # ----------------------------------------------------
-
         reset_button = QPushButton(
-            "Восстановить настройки по умолчанию",
+            f"Сбросить настройки {title}",
         )
 
         reset_button.clicked.connect(
@@ -1097,10 +1075,250 @@ class SettingsDialog(QDialog):
         return page
 
     # ========================================================
-    # Provider selection
+    # Маршрутизация
     # ========================================================
 
-    def _provider_selection_changed(
+    def _build_routing_tab(self):
+
+        tab = QWidget()
+
+        layout = QHBoxLayout(tab)
+
+        self.routing_channel_list = QListWidget()
+        self.routing_provider_list = QListWidget()
+
+        self.routing_channel_list.currentItemChanged.connect(
+            self._routing_channel_selected,
+        )
+
+        layout.addWidget(
+            self.routing_channel_list,
+            1,
+        )
+
+        layout.addWidget(
+            self.routing_provider_list,
+            2,
+        )
+
+        self.routing_provider_list.itemDoubleClicked.connect(
+            self._routing_provider_double_clicked,
+        )
+
+        for channel_id, title in ROUTING_CHANNELS:
+            item = QListWidgetItem(
+                title,
+            )
+
+            item.setData(
+                Qt.ItemDataRole.UserRole,
+                channel_id,
+            )
+
+            self.routing_channel_list.addItem(
+                item,
+            )
+
+        self._rebuild_routing_provider_list()
+
+        self.tabs.addTab(
+            tab,
+            "Маршрутизация",
+        )
+
+    # ========================================================
+    # Загрузка настроек
+    # ========================================================
+
+    def _load_all_settings(self):
+
+        self._load_general_settings()
+        self._load_overlay_settings()
+        self._load_provider_settings()
+        self._load_routing_settings()
+
+    # --------------------------------------------------------
+
+    def _load_general_settings(self):
+
+        self.log_path_edit.setText(
+            config.log_path,
+        )
+
+        point = config.game_chat_input_point
+
+        self.game_chat_x.setValue(
+            point["x"],
+        )
+
+        self.game_chat_y.setValue(
+            point["y"],
+        )
+
+        if config.game_chat_input_point_configured:
+            self.calibration_status.setText(
+                f"Точка настроена: ({point['x']}, {point['y']})"
+            )
+        else:
+            self.calibration_status.setText(
+                "Точка не настроена.",
+            )
+
+    # --------------------------------------------------------
+
+    def _load_overlay_settings(self):
+
+        geometry = config.overlay_geometry
+
+        self.overlay_x.setValue(
+            int(geometry.get("x", 0)),
+        )
+
+        self.overlay_y.setValue(
+            int(geometry.get("y", 0)),
+        )
+
+        self.overlay_width.setValue(
+            int(geometry.get("w", 700)),
+        )
+
+        self.overlay_height.setValue(
+            int(geometry.get("h", 300)),
+        )
+
+        self.font_size.setValue(
+            config.font_size,
+        )
+
+        outgoing_channel = config.get(
+            "overlay",
+            "outgoing_channel",
+            default="local",
+        )
+
+        index = self.outgoing_channel.findData(
+            outgoing_channel,
+        )
+
+        if index >= 0:
+            self.outgoing_channel.setCurrentIndex(
+                index,
+            )
+
+    # --------------------------------------------------------
+
+    def _load_provider_settings(self):
+
+        for provider_id in PROVIDER_NAMES:
+            provider = config.get(
+                "providers",
+                provider_id,
+                default={},
+            ) or {}
+
+            enabled = getattr(
+                self,
+                f"{provider_id}_enabled",
+                None,
+            )
+
+            if enabled is not None:
+                index = enabled.findData(
+                    bool(provider.get("enabled", False)),
+                )
+
+                if index >= 0:
+                    enabled.setCurrentIndex(
+                        index,
+                    )
+
+            source = getattr(
+                self,
+                f"{provider_id}_source_language",
+                None,
+            )
+
+            if source is not None:
+                source.setText(
+                    str(provider.get("source_language", "en")),
+                )
+
+            target = getattr(
+                self,
+                f"{provider_id}_target_language",
+                None,
+            )
+
+            if target is not None:
+                target.setText(
+                    str(provider.get("target_language", "ru")),
+                )
+
+            model = getattr(
+                self,
+                f"{provider_id}_model",
+                None,
+            )
+
+            if model is not None:
+                model.setText(
+                    str(provider.get("model", "")),
+                )
+
+            prompt = getattr(
+                self,
+                f"{provider_id}_system_prompt",
+                None,
+            )
+
+            if prompt is not None:
+                prompt.setPlainText(
+                    str(provider.get("system_prompt", "")),
+                )
+
+            host = getattr(
+                self,
+                f"{provider_id}_host",
+                None,
+            )
+
+            if host is not None:
+                host.setText(
+                    str(provider.get("host", "http://127.0.0.1:11434")),
+                )
+
+            api_key = getattr(
+                self,
+                f"{provider_id}_api_key",
+                None,
+            )
+
+            if api_key is not None:
+                api_key.setText(
+                    config.provider_api_key(provider_id),
+                )
+
+        self.current_provider_id = "google"
+
+        if self.provider_list.count() > 0:
+            self.provider_list.setCurrentRow(0)
+
+    # --------------------------------------------------------
+
+    def _load_routing_settings(self):
+
+        self.routing_data = deepcopy(
+            config.all_routes(),
+        )
+
+        if self.routing_channel_list.count() > 0:
+            self.routing_channel_list.setCurrentRow(0)
+
+    # ========================================================
+    # События провайдеров
+    # ========================================================
+
+    def _provider_selected(
         self,
         current: Optional[QListWidgetItem],
         previous: Optional[QListWidgetItem],
@@ -1115,15 +1333,8 @@ class SettingsDialog(QDialog):
 
         self.current_provider_id = provider_id
 
-        page = self.provider_pages.get(
-            provider_id,
-        )
-
-        if page is None:
-            return
-
         index = self.provider_stack.indexOf(
-            page,
+            self.provider_pages.get(provider_id),
         )
 
         if index >= 0:
@@ -1132,968 +1343,123 @@ class SettingsDialog(QDialog):
             )
 
     # ========================================================
-    # Маршрутизация
+    # События маршрутизации
     # ========================================================
 
-    def _build_routing_tab(self):
-
-        tab = QWidget()
-
-        main_layout = QHBoxLayout(
-            tab,
-        )
-
-        # ----------------------------------------------------
-        # Каналы
-        # ----------------------------------------------------
-
-        left_layout = QVBoxLayout()
-
-        left_layout.addWidget(QLabel("Канал:"))
-
-        self.routing_channel_list = QListWidget()
-
-        self.routing_channel_list.currentItemChanged.connect(
-            self._routing_channel_changed,
-        )
-
-        left_layout.addWidget(
-            self.routing_channel_list,
-        )
-
-        main_layout.addLayout(
-            left_layout,
-            1,
-        )
-
-        # ----------------------------------------------------
-        # Очередь
-        # ----------------------------------------------------
-
-        right_layout = QVBoxLayout()
-
-        right_layout.addWidget(
-            QLabel("Очередь переводчиков (сверху - высший приоритет):")
-        )
-
-        self.routing_queue = QListWidget()
-
-        right_layout.addWidget(
-            self.routing_queue,
-        )
-
-        # ----------------------------------------------------
-        # Кнопки
-        # ----------------------------------------------------
-
-        buttons_layout = QHBoxLayout()
-
-        self.routing_add_button = QPushButton("+")
-        self.routing_remove_button = QPushButton("-")
-        self.routing_up_button = QPushButton("↑")
-        self.routing_down_button = QPushButton("↓")
-
-        self.routing_add_button.setToolTip(
-            "Добавить доступного переводчика",
-        )
-
-        self.routing_remove_button.setToolTip(
-            "Удалить выбранного переводчика",
-        )
-
-        self.routing_up_button.setToolTip(
-            "Повысить приоритет",
-        )
-
-        self.routing_down_button.setToolTip(
-            "Понизить приоритет",
-        )
-
-        buttons_layout.addWidget(
-            self.routing_add_button,
-        )
-
-        buttons_layout.addWidget(
-            self.routing_remove_button,
-        )
-
-        buttons_layout.addWidget(
-            self.routing_up_button,
-        )
-
-        buttons_layout.addWidget(
-            self.routing_down_button,
-        )
-
-        right_layout.addLayout(
-            buttons_layout,
-        )
-
-        main_layout.addLayout(
-            right_layout,
-            2,
-        )
-
-        # ----------------------------------------------------
-        # Сигналы
-        # ----------------------------------------------------
-
-        self.routing_add_button.clicked.connect(
-            self._routing_add_provider,
-        )
-
-        self.routing_remove_button.clicked.connect(
-            self._routing_remove_provider,
-        )
-
-        self.routing_up_button.clicked.connect(
-            self._routing_move_up,
-        )
-
-        self.routing_down_button.clicked.connect(
-            self._routing_move_down,
-        )
-
-        # ----------------------------------------------------
-        # Каналы
-        # ----------------------------------------------------
-
-        for channel_id, channel_name in ROUTING_CHANNELS:
-            item = QListWidgetItem(
-                channel_name,
-            )
-
-            item.setData(
-                Qt.ItemDataRole.UserRole,
-                channel_id,
-            )
-
-            self.routing_channel_list.addItem(
-                item,
-            )
-
-        self.tabs.addTab(
-            tab,
-            "Маршрутизация",
-        )
-
-    # ========================================================
-    # Смена канала
-    # ========================================================
-
-    def _routing_channel_changed(
+    def _routing_channel_selected(
         self,
         current: Optional[QListWidgetItem],
         previous: Optional[QListWidgetItem],
     ):
 
-        if previous is not None:
-            previous_channel = previous.data(
-                Qt.ItemDataRole.UserRole,
-            )
-
-            self.routing_data[previous_channel] = self._get_current_routing_queue()
-
         if current is None:
             return
 
-        channel = current.data(
+        channel_id = current.data(
             Qt.ItemDataRole.UserRole,
         )
 
-        self.current_routing_channel = channel
+        self.current_routing_channel = channel_id
 
-        queue = self.routing_data.get(
-            channel,
-            ["google"],
-        )
+        self._rebuild_routing_provider_list()
 
-        self._display_routing_queue(
-            queue,
-        )
+    # --------------------------------------------------------
 
-    # ========================================================
-    # Получить очередь
-    # ========================================================
+    def _rebuild_routing_provider_list(self):
 
-    def _get_current_routing_queue(
-        self,
-    ) -> List[str]:
-
-        result = []
-
-        for index in range(
-            self.routing_queue.count(),
-        ):
-            item = self.routing_queue.item(
-                index,
-            )
-
-            provider_id = item.data(
-                Qt.ItemDataRole.UserRole,
-            )
-
-            if provider_id:
-                result.append(
-                    provider_id,
-                )
-
-        return result
-
-    # ========================================================
-    # Отобразить очередь
-    # ========================================================
-
-    def _display_routing_queue(
-        self,
-        providers: List[str],
-    ):
-
-        self.routing_queue.clear()
-
-        available = set(self._available_provider_ids())
-
-        seen = set()
-
-        for provider_id in providers:
-            if provider_id in seen:
-                continue
-
-            if provider_id not in available:
-                continue
-
-            seen.add(
-                provider_id,
-            )
-
-            self._add_queue_item(
-                provider_id,
-            )
-
-        if self.routing_queue.count() == 0:
-            if "google" in available:
-                self._add_queue_item(
-                    "google",
-                )
-
-    # ========================================================
-    # Добавить элемент
-    # ========================================================
-
-    def _add_queue_item(
-        self,
-        provider_id: str,
-    ):
-
-        item = QListWidgetItem(
-            PROVIDER_NAMES.get(
-                provider_id,
-                provider_id,
-            )
-        )
-
-        item.setData(
-            Qt.ItemDataRole.UserRole,
-            provider_id,
-        )
-
-        self.routing_queue.addItem(
-            item,
-        )
-
-    # ========================================================
-    # Добавить провайдера
-    # ========================================================
-
-    def _routing_add_provider(self):
+        self.routing_provider_list.clear()
 
         if self.current_routing_channel is None:
             return
 
-        existing = set(self._get_current_routing_queue())
-
-        for provider_id in self._available_provider_ids():
-            if provider_id in existing:
-                continue
-
-            self._add_queue_item(
-                provider_id,
-            )
-
-            self.routing_queue.setCurrentRow(
-                self.routing_queue.count() - 1,
-            )
-
-            break
-
-    # ========================================================
-    # Удалить провайдера
-    # ========================================================
-
-    def _routing_remove_provider(self):
-
-        row = self.routing_queue.currentRow()
-
-        if row < 0:
-            return
-
-        item = self.routing_queue.item(
-            row,
+        route = self.routing_data.get(
+            self.current_routing_channel,
+            [],
         )
-
-        provider_id = item.data(
-            Qt.ItemDataRole.UserRole,
-        )
-
-        if provider_id == "google" and self.routing_queue.count() == 1:
-            return
-
-        self.routing_queue.takeItem(
-            row,
-        )
-
-    # ========================================================
-    # Переместить вверх
-    # ========================================================
-
-    def _routing_move_up(self):
-
-        row = self.routing_queue.currentRow()
-
-        if row <= 0:
-            return
-
-        item = self.routing_queue.takeItem(
-            row,
-        )
-
-        self.routing_queue.insertItem(
-            row - 1,
-            item,
-        )
-
-        self.routing_queue.setCurrentRow(
-            row - 1,
-        )
-
-    # ========================================================
-    # Переместить вниз
-    # ========================================================
-
-    def _routing_move_down(self):
-
-        row = self.routing_queue.currentRow()
-
-        if row < 0:
-            return
-
-        if row >= self.routing_queue.count() - 1:
-            return
-
-        item = self.routing_queue.takeItem(
-            row,
-        )
-
-        self.routing_queue.insertItem(
-            row + 1,
-            item,
-        )
-
-        self.routing_queue.setCurrentRow(
-            row + 1,
-        )
-
-    # ========================================================
-    # Проверка доступности
-    # ========================================================
-
-    def _provider_is_available(
-        self,
-        provider_id: str,
-    ) -> bool:
-
-        if provider_id == "google":
-            return self.google_enabled.isChecked()
-
-        if provider_id not in AI_PROVIDERS:
-            return False
-
-        enabled_widget = getattr(
-            self,
-            f"{provider_id}_enabled",
-            None,
-        )
-
-        if enabled_widget is None:
-            return False
-
-        if enabled_widget.currentData() is not True:
-            return False
-
-        # ----------------------------------------------------
-        # Ollama
-        # ----------------------------------------------------
-
-        if provider_id == "ollama":
-            host_widget = getattr(
-                self,
-                "ollama_host",
-                None,
-            )
-
-            model_widget = getattr(
-                self,
-                "ollama_model",
-                None,
-            )
-
-            if host_widget is None:
-                return False
-
-            if model_widget is None:
-                return False
-
-            if not host_widget.text().strip():
-                return False
-
-            if not model_widget.text().strip():
-                return False
-
-            return True
-
-        # ----------------------------------------------------
-        # API providers
-        # ----------------------------------------------------
-
-        api_widget = getattr(
-            self,
-            f"{provider_id}_api_key",
-            None,
-        )
-
-        model_widget = getattr(
-            self,
-            f"{provider_id}_model",
-            None,
-        )
-
-        if api_widget is None:
-            return False
-
-        if model_widget is None:
-            return False
-
-        if not api_widget.text().strip():
-            return False
-
-        if not model_widget.text().strip():
-            return False
-
-        return True
-
-    # ========================================================
-    # Доступные провайдеры
-    # ========================================================
-
-    def _available_provider_ids(
-        self,
-    ) -> List[str]:
-
-        result = []
-
-        for provider_id in PROVIDER_NAMES:
-            if self._provider_is_available(
-                provider_id,
-            ):
-                result.append(
-                    provider_id,
-                )
-
-        return result
-
-    # ========================================================
-    # Загрузка настроек
-    # ========================================================
-
-    def _load_all_settings(self):
-
-        # ----------------------------------------------------
-        # General
-        # ----------------------------------------------------
-
-        self.log_path_edit.setText(
-            config.log_path,
-        )
-
-        # ----------------------------------------------------
-        # Game chat input point
-        # ----------------------------------------------------
-
-        point = config.get(
-            "game_chat",
-            "input_point",
-            default=None,
-        )
-
-        if isinstance(point, dict):
-            try:
-                x = int(point.get("x", 0))
-                y = int(point.get("y", 0))
-
-                self.game_chat_x.setValue(
-                    x,
-                )
-
-                self.game_chat_y.setValue(
-                    y,
-                )
-
-                self.calibration_status.setText(f"Сохранена точка: ({x}, {y})")
-
-            except (
-                TypeError,
-                ValueError,
-            ):
-                self.game_chat_x.setValue(0)
-                self.game_chat_y.setValue(0)
-
-        else:
-            self.game_chat_x.setValue(0)
-            self.game_chat_y.setValue(0)
-
-            self.calibration_status.setText("Точка не настроена.")
-
-        # ----------------------------------------------------
-        # Overlay
-        # ----------------------------------------------------
-
-        geometry = config.overlay_geometry or {}
-
-        self.overlay_x.setValue(
-            int(
-                geometry.get(
-                    "x",
-                    1,
-                )
-            )
-        )
-
-        self.overlay_y.setValue(
-            int(
-                geometry.get(
-                    "y",
-                    11,
-                )
-            )
-        )
-
-        self.overlay_width.setValue(
-            int(
-                geometry.get(
-                    "w",
-                    700,
-                )
-            )
-        )
-
-        self.overlay_height.setValue(
-            int(
-                geometry.get(
-                    "h",
-                    309,
-                )
-            )
-        )
-
-        self.overlay_font_size.setValue(
-            int(
-                config.font_size,
-            )
-        )
-
-        # ----------------------------------------------------
-        # Google
-        # ----------------------------------------------------
-
-        google = config.get_provider(
-            "google",
-        )
-
-        self.google_enabled.setChecked(
-            google.get(
-                "enabled",
-                True,
-            )
-        )
-
-        self.google_source.setText(
-            google.get(
-                "source_language",
-                "en",
-            )
-        )
-
-        self.google_target.setText(
-            google.get(
-                "target_language",
-                "ru",
-            )
-        )
-
-        # ----------------------------------------------------
-        # AI providers
-        # ----------------------------------------------------
 
         for provider_id in AI_PROVIDERS:
-            data = config.get_provider(
+            name = PROVIDER_NAMES.get(
+                provider_id,
                 provider_id,
             )
 
-            enabled_widget = getattr(
-                self,
-                f"{provider_id}_enabled",
+            item = QListWidgetItem(
+                name,
             )
 
-            enabled_widget.setCurrentIndex(
-                1
-                if data.get(
-                    "enabled",
-                    False,
-                )
-                else 0
+            item.setData(
+                Qt.ItemDataRole.UserRole,
+                provider_id,
             )
 
-            model_widget = getattr(
-                self,
-                f"{provider_id}_model",
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if provider_id in route
+                else Qt.CheckState.Unchecked
             )
 
-            model_widget.setText(
-                data.get(
-                    "model",
-                    "",
-                )
+            self.routing_provider_list.addItem(
+                item,
             )
 
-            source_widget = getattr(
-                self,
-                f"{provider_id}_source_language",
+    # --------------------------------------------------------
+
+    def _routing_provider_double_clicked(
+        self,
+        item: QListWidgetItem,
+    ):
+
+        checked = item.checkState() == Qt.CheckState.Checked
+
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if checked
+            else Qt.CheckState.Checked
+        )
+
+        self._update_current_route()
+
+    # --------------------------------------------------------
+
+    def _update_current_route(self):
+
+        if self.current_routing_channel is None:
+            return
+
+        route = []
+
+        for index in range(
+            self.routing_provider_list.count(),
+        ):
+            item = self.routing_provider_list.item(
+                index,
             )
 
-            source_widget.setText(
-                data.get(
-                    "source_language",
-                    "en",
-                )
-            )
-
-            target_widget = getattr(
-                self,
-                f"{provider_id}_target_language",
-            )
-
-            target_widget.setText(
-                data.get(
-                    "target_language",
-                    "ru",
-                )
-            )
-
-            prompt_widget = getattr(
-                self,
-                f"{provider_id}_system_prompt",
-            )
-
-            prompt_widget.setPlainText(
-                data.get(
-                    "system_prompt",
-                    "",
-                )
-            )
-
-            if provider_id == "ollama":
-                host_widget = getattr(
-                    self,
-                    "ollama_host",
-                )
-
-                host_widget.setText(
-                    data.get(
-                        "host",
-                        "http://127.0.0.1:11434",
+            if item.checkState() == Qt.CheckState.Checked:
+                route.append(
+                    item.data(
+                        Qt.ItemDataRole.UserRole,
                     )
                 )
 
-            else:
-                api_widget = getattr(
-                    self,
-                    f"{provider_id}_api_key",
-                )
-
-                api_widget.setText(
-                    config.provider_api_key(provider_id)
-                )
-
-        # ----------------------------------------------------
-        # Routing
-        # ----------------------------------------------------
-
-        self.routing_data = {}
-
-        for channel_id, _ in ROUTING_CHANNELS:
-            route = config.route(
-                channel_id,
-            )
-
-            if not route:
-                route = ["google"]
-
-            self.routing_data[channel_id] = list(route)
-
-        if self.routing_channel_list.count():
-            self.routing_channel_list.setCurrentRow(
-                0,
-            )
-
-            first = self.routing_channel_list.item(
-                0,
-            )
-
-            self._routing_channel_changed(
-                first,
-                None,
-            )
-
-        # ----------------------------------------------------
-        # Provider list
-        # ----------------------------------------------------
-
-        if self.provider_list.count():
-            self.provider_list.setCurrentRow(
-                0,
-            )
+        self.routing_data[self.current_routing_channel] = route
 
     # ========================================================
-    # Сохранение
-    # ========================================================
-
-    def _save_all_settings(self):
-
-        # ----------------------------------------------------
-        # General
-        # ----------------------------------------------------
-
-        config.log_path = self.log_path_edit.text().strip()
-
-        # ----------------------------------------------------
-        # Game chat input point
-        # ----------------------------------------------------
-
-        config.set(
-            "game_chat",
-            "input_point",
-            value={
-                "x": self.game_chat_x.value(),
-                "y": self.game_chat_y.value(),
-            },
-        )
-
-        # ----------------------------------------------------
-        # Overlay
-        # ----------------------------------------------------
-
-        config.overlay_geometry = {
-            "x": self.overlay_x.value(),
-            "y": self.overlay_y.value(),
-            "w": self.overlay_width.value(),
-            "h": self.overlay_height.value(),
-        }
-
-        config.font_size = self.overlay_font_size.value()
-
-        # ----------------------------------------------------
-        # Google
-        # ----------------------------------------------------
-
-        config.set(
-            "providers",
-            "google",
-            value={
-                "enabled": self.google_enabled.isChecked(),
-                "source_language": (self.google_source.text().strip() or "en"),
-                "target_language": (self.google_target.text().strip() or "ru"),
-            },
-        )
-
-        # ----------------------------------------------------
-        # AI providers
-        # ----------------------------------------------------
-
-        for provider_id in AI_PROVIDERS:
-            data = deepcopy(
-                config.get_provider(
-                    provider_id,
-                )
-            )
-
-            data["enabled"] = (
-                getattr(
-                    self,
-                    f"{provider_id}_enabled",
-                ).currentData()
-                is True
-            )
-
-            data["model"] = (
-                getattr(
-                    self,
-                    f"{provider_id}_model",
-                )
-                .text()
-                .strip()
-            )
-
-            data["source_language"] = (
-                getattr(
-                    self,
-                    f"{provider_id}_source_language",
-                )
-                .text()
-                .strip()
-                or "en"
-            )
-
-            data["target_language"] = (
-                getattr(
-                    self,
-                    f"{provider_id}_target_language",
-                )
-                .text()
-                .strip()
-                or "ru"
-            )
-
-            data["system_prompt"] = (
-                getattr(
-                    self,
-                    f"{provider_id}_system_prompt",
-                )
-                .toPlainText()
-                .strip()
-            )
-
-            if provider_id == "ollama":
-                data["host"] = self.ollama_host.text().strip()
-
-            else:
-                config.set_provider_api_key(
-                    provider_id,
-                    getattr(
-                        self,
-                        f"{provider_id}_api_key",
-                    ).text().strip(),
-                )
-                data.pop("api_key", None)
-
-            config.set(
-                "providers",
-                provider_id,
-                value=data,
-            )
-
-        # ----------------------------------------------------
-        # Последний канал
-        # ----------------------------------------------------
-
-        if self.current_routing_channel is not None:
-            self.routing_data[self.current_routing_channel] = (
-                self._get_current_routing_queue()
-            )
-
-        # ----------------------------------------------------
-        # Routing
-        # ----------------------------------------------------
-
-        for channel_id, _ in ROUTING_CHANNELS:
-            queue = list(
-                self.routing_data.get(
-                    channel_id,
-                    ["google"],
-                )
-            )
-
-            # Удаляем недоступных.
-            queue = [
-                provider_id
-                for provider_id in queue
-                if self._provider_is_available(
-                    provider_id,
-                )
-            ]
-
-            # Удаляем дубли.
-            unique_queue = []
-
-            for provider_id in queue:
-                if provider_id not in unique_queue:
-                    unique_queue.append(
-                        provider_id,
-                    )
-
-            queue = unique_queue
-
-            # Если маршрут пустой, используем Google,
-            # если он доступен.
-            if not queue:
-                if self.google_enabled.isChecked():
-                    queue = ["google"]
-
-                else:
-                    # Сохраняем хотя бы пустой маршрут.
-                    # TranslationRouter сможет обработать
-                    # отсутствие доступного провайдера.
-                    queue = []
-
-            config.set(
-                "routing",
-                channel_id,
-                value=queue,
-            )
-
-    # ========================================================
-    # Сохранить и закрыть
-    # ========================================================
-
-    def _save_and_accept(self):
-
-        try:
-            self._save_all_settings()
-
-            self.accept()
-
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Ошибка сохранения",
-                str(e),
-            )
-
-    # ========================================================
-    # Выбор LatestClient.txt
+    # Обзор файла
     # ========================================================
 
     def _browse_log_file(self):
 
-        path, _ = QFileDialog.getOpenFileName(
+        filename, _ = QFileDialog.getOpenFileName(
             self,
             "Выберите LatestClient.txt",
             "",
             "Text files (*.txt);;All files (*.*)",
         )
 
-        if path:
+        if filename:
             self.log_path_edit.setText(
-                path,
+                filename,
             )
 
     # ========================================================
@@ -2107,163 +1473,136 @@ class SettingsDialog(QDialog):
 
         answer = QMessageBox.question(
             self,
-            "Восстановить настройки",
-            (
-                "Восстановить настройки "
-                f"{PROVIDER_NAMES.get(provider_id, provider_id)} "
-                "по умолчанию?"
-            ),
+            "Сброс настроек",
+            f"Сбросить настройки провайдера {PROVIDER_NAMES.get(provider_id, provider_id)}?",
         )
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        defaults = DEFAULT_CONFIG["providers"].get(
+        config.reset_provider(
             provider_id,
-            {},
         )
 
-        # ----------------------------------------------------
-        # Google
-        # ----------------------------------------------------
+        self._load_provider_settings()
 
-        if provider_id == "google":
-            self.google_enabled.setChecked(
-                defaults.get(
-                    "enabled",
-                    True,
+    # ========================================================
+    # Сохранение
+    # ========================================================
+
+    def _save_and_accept(self):
+
+        config.log_path = self.log_path_edit.text().strip()
+
+        config.set_game_chat_input_point(
+            self.game_chat_x.value(),
+            self.game_chat_y.value(),
+        )
+
+        config.overlay_geometry = {
+            "x": self.overlay_x.value(),
+            "y": self.overlay_y.value(),
+            "w": self.overlay_width.value(),
+            "h": self.overlay_height.value(),
+        }
+
+        config.font_size = self.font_size.value()
+
+        config.set(
+            "overlay",
+            "outgoing_channel",
+            value=self.outgoing_channel.currentData(),
+        )
+
+        self._update_current_route()
+
+        for channel_id, route in self.routing_data.items():
+            config.set_route(
+                channel_id,
+                route,
+            )
+
+        for provider_id in PROVIDER_NAMES:
+            provider = config.get(
+                "providers",
+                provider_id,
+                default={},
+            ) or {}
+
+            enabled = getattr(
+                self,
+                f"{provider_id}_enabled",
+                None,
+            )
+
+            if enabled is not None:
+                provider["enabled"] = bool(
+                    enabled.currentData()
                 )
+
+            source = getattr(
+                self,
+                f"{provider_id}_source_language",
+                None,
             )
 
-            self.google_source.setText(
-                defaults.get(
-                    "source_language",
-                    "en",
-                )
+            if source is not None:
+                provider["source_language"] = source.text().strip() or "en"
+
+            target = getattr(
+                self,
+                f"{provider_id}_target_language",
+                None,
             )
 
-            self.google_target.setText(
-                defaults.get(
-                    "target_language",
-                    "ru",
-                )
+            if target is not None:
+                provider["target_language"] = target.text().strip() or "ru"
+
+            model = getattr(
+                self,
+                f"{provider_id}_model",
+                None,
             )
 
-            return
+            if model is not None:
+                provider["model"] = model.text().strip()
 
-        # ----------------------------------------------------
-        # AI provider
-        # ----------------------------------------------------
-
-        enabled_widget = getattr(
-            self,
-            f"{provider_id}_enabled",
-        )
-
-        enabled_widget.setCurrentIndex(
-            1
-            if defaults.get(
-                "enabled",
-                False,
-            )
-            else 0
-        )
-
-        model_widget = getattr(
-            self,
-            f"{provider_id}_model",
-        )
-
-        model_widget.setText(
-            defaults.get(
-                "model",
-                "",
-            )
-        )
-
-        source_widget = getattr(
-            self,
-            f"{provider_id}_source_language",
-        )
-
-        source_widget.setText(
-            defaults.get(
-                "source_language",
-                "en",
-            )
-        )
-
-        target_widget = getattr(
-            self,
-            f"{provider_id}_target_language",
-        )
-
-        target_widget.setText(
-            defaults.get(
-                "target_language",
-                "ru",
-            )
-        )
-
-        prompt_widget = getattr(
-            self,
-            f"{provider_id}_system_prompt",
-        )
-
-        prompt_widget.setPlainText(
-            defaults.get(
-                "system_prompt",
-                "",
-            )
-        )
-
-        if provider_id == "ollama":
-            self.ollama_host.setText(
-                defaults.get(
-                    "host",
-                    "http://127.0.0.1:11434",
-                )
+            prompt = getattr(
+                self,
+                f"{provider_id}_system_prompt",
+                None,
             )
 
-        else:
-            api_widget = getattr(
+            if prompt is not None:
+                provider["system_prompt"] = prompt.toPlainText().strip()
+
+            host = getattr(
+                self,
+                f"{provider_id}_host",
+                None,
+            )
+
+            if host is not None:
+                provider["host"] = host.text().strip()
+
+            api_key = getattr(
                 self,
                 f"{provider_id}_api_key",
+                None,
             )
 
-            api_widget.setText(
-                config.provider_api_key(provider_id)
+            if api_key is not None:
+                config.set_provider_api_key(
+                    provider_id,
+                    api_key.text().strip(),
+                )
+
+            config.set(
+                "providers",
+                provider_id,
+                value=provider,
             )
 
-    # ========================================================
-    # Открыть настройки
-    # ========================================================
+        config.save()
 
-    @staticmethod
-    def open_settings(
-        parent: Optional[QWidget] = None,
-    ) -> bool:
-
-        dialog = SettingsDialog(
-            parent,
-        )
-
-        return dialog.exec() == QDialog.DialogCode.Accepted
-
-
-# ============================================================
-# Standalone test
-# ============================================================
-
-if __name__ == "__main__":
-    import sys
-
-    app = QApplication(
-        sys.argv,
-    )
-
-    dialog = SettingsDialog()
-
-    dialog.show()
-
-    sys.exit(app.exec())
+        self.accept()
