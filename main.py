@@ -1,5 +1,4 @@
 import sys
-import os
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
@@ -23,15 +22,6 @@ from core.game_chat_sender import GameChatSender
 
 from ui.chat_overlay import ChatOverlay, GlobalHotkeyListener
 from ui.settings_dialog import SettingsDialog
-
-
-# Стандартные пути к логам PoE (Standalone и Steam)
-DEFAULT_LOG_PATHS = [
-    r"C:\Program Files (x86)\Grinding Gear Games\Path of Exile\logs\LatestClient.txt",
-    r"C:\Program Files (x86)\Steam\steamapps\common\Path of Exile\logs\LatestClient.txt",
-    r"D:\SteamLibrary\steamapps\common\Path of Exile\logs\LatestClient.txt",
-    r"E:\SteamLibrary\steamapps\common\Path of Exile\logs\LatestClient.txt",
-]
 
 
 # ============================================================
@@ -182,15 +172,10 @@ class ExilingoApp:
         log_path = config.log_path
 
         if not log_path:
-            for path in DEFAULT_LOG_PATHS:
-                if os.path.exists(path):
-                    log_path = path
-                    break
-
-            if not log_path:
-                log_path = DEFAULT_LOG_PATHS[0]
-
-            config.log_path = log_path
+            raise RuntimeError(
+                "Path of Exile log path is not configured. "
+                "Set general.log_path in config.json."
+            )
 
         self.logger.info(
             "Using Path of Exile log path: %s",
