@@ -63,11 +63,6 @@ class ProviderRegistry:
                 "factory": self._create_gemini,
                 "requires_api_key": True,
             },
-            "groq": {
-                "name": "Groq",
-                "factory": None,
-                "requires_api_key": True,
-            },
             "openrouter": {
                 "name": "OpenRouter",
                 "factory": None,
