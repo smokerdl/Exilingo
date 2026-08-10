@@ -6,6 +6,7 @@ from typing import Callable, Optional
 from providers.base import BaseTranslator
 from providers.google_translate import GoogleTranslateTranslator
 from providers.gemini import GeminiTranslator
+from providers.openrouter import OpenRouterTranslator
 
 from .config_manager import config
 
@@ -70,7 +71,7 @@ class ProviderRegistry:
             },
             "openrouter": {
                 "name": "OpenRouter",
-                "factory": None,
+                "factory": self._create_openrouter,
                 "requires_api_key": True,
             },
             "ollama": {
@@ -160,6 +161,33 @@ class ProviderRegistry:
         return GeminiTranslator(
             api_key=api_key,
             model=model or "gemini-3.5-flash-lite",
+            system_prompt=system_prompt,
+            source_language=str(source_language),
+            target_language=str(target_language),
+        )
+
+    # ------------------------------------------------------
+
+    def _create_openrouter(
+        self,
+        source_language: Optional[str] = None,
+        target_language: Optional[str] = None,
+    ) -> BaseTranslator:
+        """Создает OpenRouter с текущими настройками config.json."""
+        provider = config.get("providers", "openrouter") or {}
+
+        api_key = config.provider_api_key("openrouter")
+        model = str(provider.get("model", "gpt-oss-20b:free")).strip()
+        system_prompt = str(provider.get("system_prompt", "")).strip()
+
+        if source_language is None:
+            source_language = provider.get("source_language", "en")
+        if target_language is None:
+            target_language = provider.get("target_language", "ru")
+
+        return OpenRouterTranslator(
+            api_key=api_key,
+            model=model or "gpt-oss-20b:free",
             system_prompt=system_prompt,
             source_language=str(source_language),
             target_language=str(target_language),
