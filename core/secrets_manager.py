@@ -41,7 +41,7 @@ class SecretsManager:
     def migrate_from_config(self, provider_data: dict[str, dict]) -> bool:
         values = self._read()
         changed = False
-        for provider_id in ("gemini", "groq", "openrouter"):
+        for provider_id in ("gemini", "openrouter"):
             provider = provider_data.get(provider_id) or {}
             api_key = str(provider.get("api_key", "") or "").strip()
             secret_key = f"{provider_id}_api_key"
