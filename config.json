@@ -39,17 +39,17 @@
             "target_language": "ru"
         },
         "openrouter": {
-            "enabled": false,
-            "model": "gpt-oss-20b:free",
+            "enabled": true,
+            "model": "gemma-4-26b-a4b-it:free",
             "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru"
         },
         "ollama": {
-            "enabled": false,
+            "enabled": true,
             "host": "http://127.0.0.1:11434",
-            "model": "",
-            "system_prompt": "",
+            "model": "gemma4:e4b",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru"
         }
@@ -65,6 +65,7 @@
             "google"
         ],
         "party": [
+            "openrouter",
             "gemini",
             "google"
         ],
@@ -72,6 +73,8 @@
             "google"
         ],
         "whisper": [
+            "ollama",
+            "openrouter",
             "gemini",
             "google"
         ]
