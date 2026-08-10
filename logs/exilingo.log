@@ -1,20 +1,20 @@
-2026-08-09 21:05:38.249 [INFO] [Exilingo] ====================================================================
-2026-08-09 21:05:38.249 [INFO] [Exilingo] EXILINGO SESSION START
-2026-08-09 21:05:38.249 [INFO] [Exilingo] Started: 2026-08-09T21:05:38+03:00
-2026-08-09 21:05:38.249 [INFO] [Exilingo] Python: 3.11.9
-2026-08-09 21:05:38.249 [INFO] [Exilingo] Platform: win32
-2026-08-09 21:05:38.249 [INFO] [Exilingo] Project root: C:\Users\smk79\Documents\Скрипты Pythons\Exilingo
-2026-08-09 21:05:38.249 [INFO] [Exilingo] ====================================================================
-2026-08-09 21:05:38.249 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT BEGIN
-2026-08-09 21:05:38.249 [INFO] [Exilingo.Settings] 
+2026-08-10 11:06:03.147 [INFO] [Exilingo] ====================================================================
+2026-08-10 11:06:03.147 [INFO] [Exilingo] EXILINGO SESSION START
+2026-08-10 11:06:03.147 [INFO] [Exilingo] Started: 2026-08-10T11:06:03+03:00
+2026-08-10 11:06:03.147 [INFO] [Exilingo] Python: 3.11.9
+2026-08-10 11:06:03.148 [INFO] [Exilingo] Platform: win32
+2026-08-10 11:06:03.148 [INFO] [Exilingo] Project root: C:\Users\smk79\Documents\Скрипты Pythons\Exilingo
+2026-08-10 11:06:03.148 [INFO] [Exilingo] ====================================================================
+2026-08-10 11:06:03.148 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT BEGIN
+2026-08-10 11:06:03.148 [INFO] [Exilingo.Settings] 
 {
   "general": {
     "log_path": "C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt"
   },
   "overlay": {
     "geometry": {
-      "x": -2,
-      "y": 92,
+      "x": -1,
+      "y": 88,
       "w": 704,
       "h": 286
     },
@@ -87,8 +87,8 @@
   },
   "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
   "overlay_geometry": {
-    "x": -2,
-    "y": 92,
+    "x": -1,
+    "y": 88,
     "w": 704,
     "h": 286
   },
@@ -99,205 +99,27 @@
     "target_language": "ru"
   }
 }
-2026-08-09 21:05:38.249 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT END
-2026-08-09 21:05:38.274 [INFO] [Exilingo.Main] Exilingo application initialized.
-2026-08-09 21:05:38.483 [INFO] [Exilingo.Hotkey] F5 registered for outgoing message sending.
-2026-08-09 21:05:38.483 [INFO] [Exilingo.TranslationManager] Translation worker started.
-2026-08-09 21:05:38.483 [INFO] [Exilingo.Main] Using Path of Exile log path: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
-2026-08-09 21:05:38.483 [INFO] [Exilingo.Main] LogReader monitoring started.
-2026-08-09 21:05:38.487 [INFO] [Exilingo.Main] LogReader: Поиск файла логов: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
-2026-08-09 21:05:38.487 [INFO] [Exilingo.Main] LogReader: Файл логов найден. Открытие...
-2026-08-09 21:05:38.487 [INFO] [Exilingo.Main] LogReader: Мониторинг чата активен
-2026-08-09 21:06:22.472 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='@qqqq привет' channel=whisper prefix='@'
-2026-08-09 21:06:22.472 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='whisper' sender='You' text='@qqqq привет' queue_before=0
-2026-08-09 21:06:22.473 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['gemini', 'google'] source='ru' target='en' channel='whisper' sender='You'
-2026-08-09 21:06:22.473 [DEBUG] [Exilingo.TranslationManager] whisper target extracted: 'qqqq'
-2026-08-09 21:06:22.473 [DEBUG] [Exilingo.TranslationManager] outgoing prefix extracted: '@'
-2026-08-09 21:06:22.473 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='привет'
-2026-08-09 21:06:22.473 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction='outgoing' language=ru->en text='привет'
-2026-08-09 21:06:28.414 [INFO] [Exilingo.TranslationManager] provider success: provider='gemini' name='Gemini' elapsed_ms=5940.4 result='hi'
-2026-08-09 21:06:28.416 [INFO] [Exilingo.TranslationManager] translation completed: provider='Gemini' direction='outgoing' source='ru' target='en' elapsed_ms=5942.4 original='@qqqq привет' result='@qqqq hi'
-2026-08-09 21:06:28.416 [INFO] [Exilingo.Main] Translation completed: text='@qqqq hi' provider='Gemini' direction='outgoing'
-2026-08-09 21:06:28.416 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): '@qqqq hi' local=False
-2026-08-09 21:06:28.929 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
-2026-08-09 21:06:28.929 [INFO] [Exilingo.Main] Incoming chat message: channel='whisper' sender='qqqq' text='hi'
-2026-08-09 21:06:28.929 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='whisper' sender='qqqq' text='hi' queue_before=0
-2026-08-09 21:06:28.929 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['gemini', 'google'] source='en' target='ru' channel='whisper' sender='qqqq'
-2026-08-09 21:06:28.929 [DEBUG] [Exilingo.TranslationManager] language analysis: detected=None expected_source='en' target='ru' text='hi'
-2026-08-09 21:06:28.930 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction=None language=en->ru text='hi'
-2026-08-09 21:06:37.919 [INFO] [Exilingo.TranslationManager] provider success: provider='gemini' name='Gemini' elapsed_ms=8989.0 result='привет'
-2026-08-09 21:06:37.920 [INFO] [Exilingo.TranslationManager] translation completed: provider='Gemini' direction=None source='en' target='ru' elapsed_ms=8990.3 original='hi' result='привет'
-2026-08-09 21:06:37.920 [INFO] [Exilingo.Main] Translation completed: text='привет' provider='Gemini' direction=None
-2026-08-09 21:06:37.920 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='qqqq' text='привет'
-2026-08-09 21:06:48.621 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='@qqqq как дела?' channel=whisper prefix='@'
-2026-08-09 21:06:48.621 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='whisper' sender='You' text='@qqqq как дела?' queue_before=0
-2026-08-09 21:06:48.621 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['gemini', 'google'] source='ru' target='en' channel='whisper' sender='You'
-2026-08-09 21:06:48.621 [DEBUG] [Exilingo.TranslationManager] whisper target extracted: 'qqqq'
-2026-08-09 21:06:48.621 [DEBUG] [Exilingo.TranslationManager] outgoing prefix extracted: '@'
-2026-08-09 21:06:48.621 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='как дела?'
-2026-08-09 21:06:48.621 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction='outgoing' language=ru->en text='как дела?'
-2026-08-09 21:06:52.955 [INFO] [Exilingo.TranslationManager] provider success: provider='gemini' name='Gemini' elapsed_ms=4333.4 result='how are you?'
-2026-08-09 21:06:52.956 [INFO] [Exilingo.TranslationManager] translation completed: provider='Gemini' direction='outgoing' source='ru' target='en' elapsed_ms=4334.7 original='@qqqq как дела?' result='@qqqq how are you?'
-2026-08-09 21:06:52.956 [INFO] [Exilingo.Main] Translation completed: text='@qqqq how are you?' provider='Gemini' direction='outgoing'
-2026-08-09 21:06:52.956 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): '@qqqq how are you?' local=False
-2026-08-09 21:06:53.471 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
-2026-08-09 21:06:53.501 [INFO] [Exilingo.Main] Incoming chat message: channel='whisper' sender='qqqq' text='how are you?'
-2026-08-09 21:06:53.501 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='whisper' sender='qqqq' text='how are you?' queue_before=0
-2026-08-09 21:06:53.502 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['gemini', 'google'] source='en' target='ru' channel='whisper' sender='qqqq'
-2026-08-09 21:06:53.502 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='how are you?'
-2026-08-09 21:06:53.502 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction=None language=en->ru text='how are you?'
-2026-08-09 21:06:54.621 [WARNING] [Exilingo.TranslationManager] provider failed: provider='gemini' elapsed_ms=1119.4 error='[WinError 10054] Удаленный хост принудительно разорвал существующее подключение'
+2026-08-10 11:06:03.148 [INFO] [Exilingo.Settings] CURRENT SETTINGS SNAPSHOT END
+2026-08-10 11:06:03.206 [INFO] [Exilingo.Main] Exilingo application initialized.
+2026-08-10 11:06:03.484 [INFO] [Exilingo.Hotkey] F5 registered for outgoing message sending.
+2026-08-10 11:06:03.484 [INFO] [Exilingo.TranslationManager] Translation worker started.
+2026-08-10 11:06:03.484 [INFO] [Exilingo.Main] Using Path of Exile log path: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-10 11:06:03.485 [INFO] [Exilingo.Main] LogReader monitoring started.
+2026-08-10 11:06:03.488 [INFO] [Exilingo.Main] LogReader: Поиск файла логов: C:/SteamLibrary/steamapps/common/Path of Exile/logs/LatestClient.txt
+2026-08-10 11:06:03.488 [INFO] [Exilingo.Main] LogReader: Файл логов найден. Открытие...
+2026-08-10 11:06:03.493 [INFO] [Exilingo.Main] LogReader: Мониторинг чата активен
+2026-08-10 11:06:12.728 [INFO] [Exilingo.Main] Settings window opened.
+2026-08-10 11:06:29.788 [INFO] [Exilingo.Main] Settings cancelled.
+2026-08-10 11:06:33.475 [INFO] [Exilingo.Main] Application shutdown requested.
+2026-08-10 11:06:33.475 [DEBUG] [Exilingo.Hotkey] F5 unregistered.
+2026-08-10 11:06:33.480 [INFO] [Exilingo.Main] Qt event loop finished with exit code 0.
+2026-08-10 11:06:33.581 [INFO] [Exilingo.TranslationManager] Translation worker stopped.
+2026-08-10 11:06:33.581 [ERROR] [Exilingo.Hotkey] Failed to unregister F5: 'f5'
 Traceback (most recent call last):
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
-    resp = self._pool.handle_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
-    raise exc from None
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
-    response = connection.handle_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 101, in handle_request
-    raise exc
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 78, in handle_request
-    stream = self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 156, in _connect
-    stream = stream.start_tls(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_backends\sync.py", line 154, in start_tls
-    with map_exceptions(exc_map):
-  File "C:\Users\smk79\AppData\Local\Programs\Python\Python311\Lib\contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\core\translation_manager.py", line 242, in _process_context
-    translated = translator.translate(normalized)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\providers\gemini\translator.py", line 78, in translate
-    response = self._client.models.generate_content(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\google\genai\models.py", line 6604, in generate_content
-    response = self._generate_content(
-               ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\google\genai\models.py", line 5028, in _generate_content
-    response = self._api_client.request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\google\genai\_api_client.py", line 1708, in request
-    response = self._request(http_request, http_options, stream=False)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\google\genai\_api_client.py", line 1495, in _request
-    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\tenacity\__init__.py", line 470, in __call__
-    do = self.iter(retry_state=retry_state)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\tenacity\__init__.py", line 371, in iter
-    result = action(retry_state)
-             ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\tenacity\__init__.py", line 413, in exc_check
-    raise retry_exc.reraise()
-          ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\tenacity\__init__.py", line 184, in reraise
-    raise self.last_attempt.result()
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\_base.py", line 449, in result
-    return self.__get_result()
-           ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\_base.py", line 401, in __get_result
-    raise self._exception
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\tenacity\__init__.py", line 473, in __call__
-    result = fn(*args, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\google\genai\_api_client.py", line 1471, in _request_once
-    response = self._httpx_client.send(httpx_request, stream=stream)  # type: ignore[union-attr]
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_client.py", line 914, in send
-    response = self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
-    response = self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
-    response = self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
-    response = transport.handle_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
-    with map_httpcore_exceptions():
-  File "C:\Users\smk79\AppData\Local\Programs\Python\Python311\Lib\contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-2026-08-09 21:06:54.654 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='how are you?'
-2026-08-09 21:06:55.166 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=512.4 result='Как вы?'
-2026-08-09 21:06:55.166 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=1664.4 original='how are you?' result='Как вы?'
-2026-08-09 21:06:55.166 [INFO] [Exilingo.Main] Translation completed: text='Как вы?' provider='Google Translate' direction=None
-2026-08-09 21:06:55.166 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='qqqq' text='Как вы?'
-2026-08-09 21:07:02.406 [INFO] [Exilingo.Main] Settings window opened.
-2026-08-09 21:07:10.725 [INFO] [Exilingo.Main] Settings saved.
-2026-08-09 21:07:24.752 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='@qqqq как дела?' channel=whisper prefix='@'
-2026-08-09 21:07:24.752 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='whisper' sender='You' text='@qqqq как дела?' queue_before=0
-2026-08-09 21:07:24.752 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['google', 'gemini'] source='ru' target='en' channel='whisper' sender='You'
-2026-08-09 21:07:24.752 [DEBUG] [Exilingo.TranslationManager] whisper target extracted: 'qqqq'
-2026-08-09 21:07:24.752 [DEBUG] [Exilingo.TranslationManager] outgoing prefix extracted: '@'
-2026-08-09 21:07:24.752 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='как дела?'
-2026-08-09 21:07:24.752 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction='outgoing' language=ru->en text='как дела?'
-2026-08-09 21:07:25.246 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=494.0 result='How are you?'
-2026-08-09 21:07:25.246 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction='outgoing' source='ru' target='en' elapsed_ms=494.4 original='@qqqq как дела?' result='@qqqq How are you?'
-2026-08-09 21:07:25.247 [INFO] [Exilingo.Main] Translation completed: text='@qqqq How are you?' provider='Google Translate' direction='outgoing'
-2026-08-09 21:07:25.247 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): '@qqqq How are you?' local=False
-2026-08-09 21:07:25.762 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
-2026-08-09 21:07:25.763 [INFO] [Exilingo.Main] Incoming chat message: channel='whisper' sender='qqqq' text='How are you?'
-2026-08-09 21:07:25.764 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='whisper' sender='qqqq' text='How are you?' queue_before=0
-2026-08-09 21:07:25.764 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['google', 'gemini'] source='en' target='ru' channel='whisper' sender='qqqq'
-2026-08-09 21:07:25.764 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='How are you?'
-2026-08-09 21:07:25.764 [INFO] [Exilingo.TranslationManager] provider attempt: provider='google' direction=None language=en->ru text='How are you?'
-2026-08-09 21:07:26.276 [INFO] [Exilingo.TranslationManager] provider success: provider='google' name='Google Translate' elapsed_ms=512.1 result='Как вы?'
-2026-08-09 21:07:26.276 [INFO] [Exilingo.TranslationManager] translation completed: provider='Google Translate' direction=None source='en' target='ru' elapsed_ms=512.4 original='How are you?' result='Как вы?'
-2026-08-09 21:07:26.278 [INFO] [Exilingo.Main] Translation completed: text='Как вы?' provider='Google Translate' direction=None
-2026-08-09 21:07:26.278 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='qqqq' text='Как вы?'
-2026-08-09 21:07:32.104 [INFO] [Exilingo.Main] Settings window opened.
-2026-08-09 21:07:44.545 [INFO] [Exilingo.Main] Settings saved.
-2026-08-09 21:07:53.010 [INFO] [Exilingo.Main] Outgoing message from Overlay: text='@qqqq как дела?' channel=whisper prefix='@'
-2026-08-09 21:07:53.010 [DEBUG] [Exilingo.TranslationManager] enqueue: direction='outgoing' channel='whisper' sender='You' text='@qqqq как дела?' queue_before=0
-2026-08-09 21:07:53.010 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='outgoing' providers=['gemini', 'google'] source='ru' target='en' channel='whisper' sender='You'
-2026-08-09 21:07:53.010 [DEBUG] [Exilingo.TranslationManager] whisper target extracted: 'qqqq'
-2026-08-09 21:07:53.010 [DEBUG] [Exilingo.TranslationManager] outgoing prefix extracted: '@'
-2026-08-09 21:07:53.011 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='ru' expected_source='ru' target='en' text='как дела?'
-2026-08-09 21:07:53.011 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction='outgoing' language=ru->en text='как дела?'
-2026-08-09 21:08:00.525 [INFO] [Exilingo.TranslationManager] provider success: provider='gemini' name='Gemini' elapsed_ms=7513.8 result='how are you?'
-2026-08-09 21:08:00.527 [INFO] [Exilingo.TranslationManager] translation completed: provider='Gemini' direction='outgoing' source='ru' target='en' elapsed_ms=7515.6 original='@qqqq как дела?' result='@qqqq how are you?'
-2026-08-09 21:08:00.527 [INFO] [Exilingo.Main] Translation completed: text='@qqqq how are you?' provider='Gemini' direction='outgoing'
-2026-08-09 21:08:00.527 [INFO] [Exilingo.Main] OUTGOING -> GameChatSender.send(): '@qqqq how are you?' local=False
-2026-08-09 21:08:01.041 [INFO] [Exilingo.Main] OUTGOING OK: message passed to GameChatSender.
-2026-08-09 21:08:01.042 [INFO] [Exilingo.Main] Incoming chat message: channel='whisper' sender='qqqq' text='how are you?'
-2026-08-09 21:08:01.043 [DEBUG] [Exilingo.TranslationManager] enqueue: direction=None channel='whisper' sender='qqqq' text='how are you?' queue_before=0
-2026-08-09 21:08:01.043 [DEBUG] [Exilingo.TranslationManager] routing decision: direction='incoming' providers=['gemini', 'google'] source='en' target='ru' channel='whisper' sender='qqqq'
-2026-08-09 21:08:01.043 [DEBUG] [Exilingo.TranslationManager] language analysis: detected='en' expected_source='en' target='ru' text='how are you?'
-2026-08-09 21:08:01.043 [INFO] [Exilingo.TranslationManager] provider attempt: provider='gemini' direction=None language=en->ru text='how are you?'
-2026-08-09 21:08:10.138 [INFO] [Exilingo.TranslationManager] provider success: provider='gemini' name='Gemini' elapsed_ms=9094.8 result='как дела?'
-2026-08-09 21:08:10.139 [INFO] [Exilingo.TranslationManager] translation completed: provider='Gemini' direction=None source='en' target='ru' elapsed_ms=9096.1 original='how are you?' result='как дела?'
-2026-08-09 21:08:10.139 [INFO] [Exilingo.Main] Translation completed: text='как дела?' provider='Gemini' direction=None
-2026-08-09 21:08:10.139 [INFO] [Exilingo.Main] INCOMING -> Overlay.add_message(): sender='qqqq' text='как дела?'
-2026-08-09 21:08:15.542 [INFO] [Exilingo.Main] Application shutdown requested.
-2026-08-09 21:08:15.542 [DEBUG] [Exilingo.Hotkey] F5 unregistered.
-2026-08-09 21:08:15.548 [INFO] [Exilingo.Main] Qt event loop finished with exit code 0.
-2026-08-09 21:08:15.599 [INFO] [Exilingo.TranslationManager] Translation worker stopped.
-2026-08-09 21:08:15.599 [ERROR] [Exilingo.Hotkey] Failed to unregister F5: 'f5'
-Traceback (most recent call last):
-  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\main.py", line 103, in stop
+  File "c:\Users\smk79\Documents\Скрипты Pythons\Exilingo\main.py", line 93, in stop
     self._keyboard.remove_hotkey("f5")
   File "C:\Users\smk79\Documents\Скрипты Pythons\Exilingo\.venv\Lib\site-packages\keyboard\__init__.py", line 750, in remove_hotkey
     _hotkeys[hotkey_or_callback]()
     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^
 KeyError: 'f5'
-2026-08-09 21:08:15.600 [INFO] [Exilingo] EXILINGO SESSION END
+2026-08-10 11:06:33.588 [INFO] [Exilingo] EXILINGO SESSION END

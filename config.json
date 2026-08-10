@@ -4,8 +4,8 @@
     },
     "overlay": {
         "geometry": {
-            "x": -2,
-            "y": 92,
+            "x": -1,
+            "y": 88,
             "w": 704,
             "h": 286
         },
@@ -78,8 +78,8 @@
     },
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
-        "x": -2,
-        "y": 92,
+        "x": -1,
+        "y": 88,
         "w": 704,
         "h": 286
     },
