@@ -37,14 +37,6 @@ class OpenRouterTranslator(BaseTranslator):
         if not self.api_key:
             raise ValueError("OpenRouter API key is required")
 
-        self._client = httpx.Client(
-            timeout= self.REQUEST_TIMEOUT_MS / 1000,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-
     def translate(
         self,
         text: str,
@@ -70,13 +62,18 @@ class OpenRouterTranslator(BaseTranslator):
             messages.append({"role": "system", "content": self.system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = self._client.post(
+        response = httpx.post(
             self.API_URL,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
             json={
                 "model": self.model,
                 "messages": messages,
                 "temperature": 0.2,
             },
+            timeout=self.REQUEST_TIMEOUT_MS / 1000,
         )
         response.raise_for_status()
 
@@ -96,6 +93,3 @@ class OpenRouterTranslator(BaseTranslator):
             raise RuntimeError("OpenRouter returned an empty translation")
 
         return result
-
-    def close(self) -> None:
-        self._client.close()
