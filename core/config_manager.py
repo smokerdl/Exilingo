@@ -8,7 +8,8 @@ from typing import Any
 from .secrets_manager import SecretsManager
 
 
-CONFIG_FILE = "config.json"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_FILE = PROJECT_ROOT / "config.json"
 
 
 # ==========================================================
@@ -187,7 +188,7 @@ class ConfigManager:
 
     def __init__(
         self,
-        filename: str = CONFIG_FILE,
+        filename: str | Path = CONFIG_FILE,
     ):
         self.filename = Path(filename)
         self.secrets = SecretsManager(self.filename.with_name("secrets.txt"))
@@ -238,13 +239,18 @@ class ConfigManager:
                 loaded,
             )
 
+            before_migration_and_normalization = deepcopy(
+                self.data,
+            )
+
             self._migrate_legacy_config(
                 loaded,
             )
 
             self._normalize_config()
 
-            self.save()
+            if self.data != before_migration_and_normalization:
+                self.save()
 
         except Exception as e:
             print(f"[Config] Ошибка загрузки: {e}")
