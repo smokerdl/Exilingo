@@ -83,16 +83,6 @@ DEFAULT_CONFIG = {
             "target_language": "ru",
         },
         # --------------------------------------------------
-        # Groq
-        # --------------------------------------------------
-        "groq": {
-            "enabled": False,
-            "model": "",
-            "system_prompt": "",
-            "source_language": "en",
-            "target_language": "ru",
-        },
-        # --------------------------------------------------
         # OpenRouter
         # --------------------------------------------------
         "openrouter": {
@@ -431,6 +421,30 @@ class ConfigManager:
         except (TypeError, ValueError):
             overlay["font_size"] = DEFAULT_CONFIG["overlay"]["font_size"]
 
+        if overlay["font_size"] < 8:
+            overlay["font_size"] = 8
+
+        if overlay["font_size"] > 32:
+            overlay["font_size"] = 32
+
+        outgoing_channel = overlay.get(
+            "outgoing_channel",
+            "local",
+        )
+
+        if outgoing_channel not in {
+            channel_id
+            for channel_id, _, _ in (
+                ("local", "Local - Область", ""),
+                ("global", "Global - Общий", "#"),
+                ("party", "Party - Группа", "%"),
+                ("whisper", "Whisper - Личный", "@"),
+                ("trade", "Trade - Торговля", "$"),
+                ("guild", "Guild - Гильдия", "&"),
+            )
+        }:
+            overlay["outgoing_channel"] = "local"
+
         # --------------------------------------------------
         # Game chat
         # --------------------------------------------------
@@ -478,6 +492,15 @@ class ConfigManager:
             "providers",
             {},
         )
+
+        # Удаляем провайдеры, которых больше нет в DEFAULT_CONFIG.
+        # Это важно для старых config.json после удаления провайдера.
+        providers = {
+            provider_id: provider
+            for provider_id, provider in providers.items()
+            if provider_id in DEFAULT_CONFIG["providers"]
+        }
+        self.data["providers"] = providers
 
         for provider_id, defaults in DEFAULT_CONFIG["providers"].items():
             provider = providers.setdefault(
@@ -579,18 +602,12 @@ class ConfigManager:
                 deepcopy(default_route),
             )
 
-            if not isinstance(
-                route,
-                list,
-            ):
-                route = deepcopy(default_route)
-
             routing[channel] = self._normalize_route(
                 route,
             )
 
         # --------------------------------------------------
-        # Legacy outgoing route
+        # Старый outgoing route
         # --------------------------------------------------
 
         legacy_outgoing = routing.get(
@@ -680,15 +697,15 @@ class ConfigManager:
                 json.dump(
                     self.data,
                     f,
-                    indent=4,
                     ensure_ascii=False,
+                    indent=4,
                 )
 
         except Exception as e:
             print(f"[Config] Ошибка сохранения: {e}")
 
     # ======================================================
-    # Рекурсивное объединение словарей
+    # Глубокое объединение
     # ======================================================
 
     def _merge_dict(
@@ -781,12 +798,11 @@ class ConfigManager:
         self.save()
 
     # ======================================================
-    # Общие настройки
+    # General
     # ======================================================
 
     @property
     def log_path(self) -> str:
-
         return self.get(
             "general",
             "log_path",
@@ -798,7 +814,6 @@ class ConfigManager:
         self,
         value: str,
     ):
-
         self.set(
             "general",
             "log_path",
@@ -811,7 +826,6 @@ class ConfigManager:
 
     @property
     def overlay_geometry(self):
-
         return self.get(
             "overlay",
             "geometry",
@@ -823,7 +837,6 @@ class ConfigManager:
         self,
         value,
     ):
-
         self.set(
             "overlay",
             "geometry",
@@ -834,7 +847,6 @@ class ConfigManager:
 
     @property
     def font_size(self) -> int:
-
         return self.get(
             "overlay",
             "font_size",
@@ -846,7 +858,6 @@ class ConfigManager:
         self,
         value: int,
     ):
-
         self.set(
             "overlay",
             "font_size",
@@ -882,25 +893,9 @@ class ConfigManager:
             default=deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"]),
         )
 
-        if not isinstance(
-            point,
-            dict,
-        ):
-            return deepcopy(DEFAULT_CONFIG["game_chat"]["input_point"])
-
         return {
-            "x": int(
-                point.get(
-                    "x",
-                    0,
-                )
-            ),
-            "y": int(
-                point.get(
-                    "y",
-                    0,
-                )
-            ),
+            "x": int(point.get("x", 0)),
+            "y": int(point.get("y", 0)),
         }
 
     @game_chat_input_point.setter
@@ -979,70 +974,19 @@ class ConfigManager:
         return point["x"] != 0 or point["y"] != 0
 
     # ======================================================
-    # Активный переводчик по умолчанию
+    # Провайдеры
     # ======================================================
 
-    @property
-    def provider(self) -> str:
-        """
-        Возвращает первого провайдера из маршрута Global.
-
-        Это временная совместимость со старым кодом.
-        """
-
-        route = self.route(
-            "global",
-        )
-
-        if route:
-            return route[0]
-
-        return "google"
-
-    # ======================================================
-    # Настройки конкретного провайдера
-    # ======================================================
-
-    def get_provider(
-        self,
-        provider_id: str,
-    ) -> dict:
-
-        result = self.get(
+    def get_provider(self, provider_id: str) -> dict:
+        return self.get(
             "providers",
             provider_id,
             default={},
-        )
-
-        if not isinstance(
-            result,
-            dict,
-        ):
-            return {}
-
-        return result
+        ) or {}
 
     # ------------------------------------------------------
 
-    def set_provider(
-        self,
-        provider_id: str,
-        settings: dict,
-    ):
-
-        self.set(
-            "providers",
-            provider_id,
-            value=dict(settings),
-        )
-
-    # ------------------------------------------------------
-
-    def provider_enabled(
-        self,
-        provider_id: str,
-    ) -> bool:
-
+    def provider_enabled(self, provider_id: str) -> bool:
         return bool(
             self.get(
                 "providers",
@@ -1059,7 +1003,6 @@ class ConfigManager:
         provider_id: str,
         enabled: bool,
     ):
-
         self.set(
             "providers",
             provider_id,
@@ -1072,12 +1015,12 @@ class ConfigManager:
     # ======================================================
 
     def provider_api_key(self, provider_id: str) -> str:
-        if provider_id not in ("gemini", "groq", "openrouter"):
+        if provider_id not in ("gemini", "openrouter"):
             return ""
         return self.secrets.get(f"{provider_id}_api_key")
 
     def set_provider_api_key(self, provider_id: str, api_key: str) -> None:
-        if provider_id not in ("gemini", "groq", "openrouter"):
+        if provider_id not in ("gemini", "openrouter"):
             raise ValueError(f"Провайдер '{provider_id}' не использует API key.")
         self.secrets.set(f"{provider_id}_api_key", api_key)
 
@@ -1089,7 +1032,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> tuple[str, str]:
-
         provider = self.get_provider(
             provider_id,
         )
@@ -1105,7 +1047,6 @@ class ConfigManager:
         )
 
         source_language = str(source_language or "en").strip() or "en"
-
         target_language = str(target_language or "ru").strip() or "ru"
 
         return (
@@ -1119,12 +1060,7 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> str:
-
-        source, _ = self.provider_languages(
-            provider_id,
-        )
-
-        return source
+        return self.provider_languages(provider_id)[0]
 
     # ------------------------------------------------------
 
@@ -1132,64 +1068,23 @@ class ConfigManager:
         self,
         provider_id: str,
     ) -> str:
-
-        _, target = self.provider_languages(
-            provider_id,
-        )
-
-        return target
-
-    # ------------------------------------------------------
-
-    def provider_outgoing_languages(
-        self,
-        provider_id: str,
-    ) -> tuple[str, str]:
-        """
-        Возвращает языковое направление для исходящего
-        сообщения.
-
-        incoming:
-            en -> ru
-
-        outgoing:
-            ru -> en
-        """
-
-        source, target = self.provider_languages(
-            provider_id,
-        )
-
-        return (
-            target,
-            source,
-        )
+        return self.provider_languages(provider_id)[1]
 
     # ======================================================
-    # Маршрутизация
+    # Маршруты
     # ======================================================
 
     def route(
         self,
         channel: str,
     ) -> list[str]:
-        """
-        Возвращает очередь провайдеров для канала.
-
-        Outgoing автоматически использует Whisper.
-        """
-
-        if channel == "outgoing":
-            channel = "whisper"
-
-        route = self.get(
-            "routing",
-            channel,
-            default=["google"],
-        )
-
-        return self._normalize_route(
-            route,
+        return list(
+            self.get(
+                "routing",
+                channel,
+                default=DEFAULT_CONFIG["routing"].get(channel, ["google"]),
+            )
+            or ["google"]
         )
 
     # ------------------------------------------------------
@@ -1199,32 +1094,15 @@ class ConfigManager:
         channel: str,
         providers: list[str],
     ):
-        """
-        Сохраняет очередь провайдеров для канала.
-
-        Outgoing записывается в Whisper.
-        """
-
-        if channel == "outgoing":
-            channel = "whisper"
-
         self.set(
             "routing",
             channel,
-            value=self._normalize_route(
-                providers,
-            ),
+            value=self._normalize_route(providers),
         )
 
     # ------------------------------------------------------
 
-    def routing(self) -> dict:
-        """
-        Возвращает таблицу маршрутизации.
-
-        Outgoing намеренно отсутствует.
-        """
-
+    def all_routes(self) -> dict[str, list[str]]:
         result = {}
 
         for channel in DEFAULT_CONFIG["routing"]:
@@ -1242,7 +1120,6 @@ class ConfigManager:
         self,
         provider_id: str,
     ):
-
         providers = DEFAULT_CONFIG["providers"]
 
         if provider_id not in providers:
@@ -1253,7 +1130,7 @@ class ConfigManager:
             provider_id,
             value=deepcopy(providers[provider_id]),
         )
-        if provider_id in ("gemini", "groq", "openrouter"):
+        if provider_id in ("gemini", "openrouter"):
             self.set_provider_api_key(provider_id, "")
 
     # ======================================================
@@ -1261,7 +1138,6 @@ class ConfigManager:
     # ======================================================
 
     def reset_routing(self):
-
         self.set(
             "routing",
             value=deepcopy(DEFAULT_CONFIG["routing"]),
@@ -1272,9 +1148,8 @@ class ConfigManager:
     # ======================================================
 
     def reset_all(self):
-
         self.data = deepcopy(DEFAULT_CONFIG)
-        for provider_id in ("gemini", "groq", "openrouter"):
+        for provider_id in ("gemini", "openrouter"):
             self.set_provider_api_key(provider_id, "")
 
         self.save()
