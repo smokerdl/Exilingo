@@ -7,23 +7,14 @@ from providers.base import BaseTranslator
 from providers.google_translate import GoogleTranslateTranslator
 from providers.gemini import GeminiTranslator
 from providers.openrouter import OpenRouterTranslator
+from providers.ollama import OllamaTranslator
 
 from .config_manager import config
 
 
-# ==========================================================
-# Информация о провайдере
-# ==========================================================
-
-
 @dataclass(slots=True)
 class ProviderInfo:
-    """
-    Описание зарегистрированного переводчика.
-
-    Состояние configured/enabled берется из текущей конфигурации,
-    поэтому GUI и Translation Pipeline видят одну и ту же картину.
-    """
+    """Описание зарегистрированного переводчика."""
 
     id: str
     name: str
@@ -32,24 +23,13 @@ class ProviderInfo:
     requires_api_key: bool
 
 
-# ==========================================================
-# Registry
-# ==========================================================
-
-
 class ProviderRegistry:
     """
     Единая точка регистрации всех переводчиков Exilingo.
 
-    Registry отвечает за:
-
-    - список поддерживаемых провайдеров;
-    - проверку их текущей конфигурации;
-    - создание экземпляра конкретного переводчика;
-    - передачу языкового направления переводчику.
-
-    GUI и TranslationManager не должны создавать конкретные
-    переводчики напрямую.
+    Registry отвечает за список поддерживаемых провайдеров, их текущее
+    состояние и создание экземпляров переводчиков. TranslationManager
+    и GUI не создают конкретные провайдеры напрямую.
     """
 
     def __init__(self):
@@ -76,61 +56,30 @@ class ProviderRegistry:
             },
             "ollama": {
                 "name": "Ollama",
-                "factory": None,
+                "factory": self._create_ollama,
                 "requires_api_key": False,
             },
         }
 
-    # ======================================================
-    # Состояние провайдера
-    # ======================================================
-
     def _is_configured(self, provider_id: str) -> bool:
-        """
-        Возвращает True, если провайдер имеет минимально
-        необходимые настройки для создания.
-        """
         provider = self._providers.get(provider_id)
-
-        if provider is None:
-            return False
-
-        return provider["factory"] is not None
-
-    # ------------------------------------------------------
+        return provider is not None and provider["factory"] is not None
 
     def _is_enabled(self, provider_id: str) -> bool:
-        """Проверяет флаг enabled в config.json."""
         return config.provider_enabled(provider_id)
 
-    # ------------------------------------------------------
-
     def is_available(self, provider_id: str) -> bool:
-        """
-        Провайдер можно использовать в Translation Pipeline,
-        если он существует, реализован, настроен и включен.
-        """
         return (
             provider_id in self._providers
             and self._is_configured(provider_id)
             and self._is_enabled(provider_id)
         )
 
-    # ======================================================
-    # Factory
-    # ======================================================
-
     def _create_google(
         self,
         source_language: Optional[str] = None,
         target_language: Optional[str] = None,
     ) -> BaseTranslator:
-        """
-        Создает Google Translate с заданным направлением.
-
-        Если языки не переданы, используются настройки
-        входящего перевода из config.json.
-        """
         if source_language is None or target_language is None:
             source_language, target_language = config.provider_languages("google")
 
@@ -139,14 +88,11 @@ class ProviderRegistry:
             target_language=target_language,
         )
 
-    # ------------------------------------------------------
-
     def _create_gemini(
         self,
         source_language: Optional[str] = None,
         target_language: Optional[str] = None,
     ) -> BaseTranslator:
-        """Создает Gemini с текущими настройками config.json."""
         provider = config.get("providers", "gemini") or {}
 
         api_key = config.provider_api_key("gemini")
@@ -166,18 +112,15 @@ class ProviderRegistry:
             target_language=str(target_language),
         )
 
-    # ------------------------------------------------------
-
     def _create_openrouter(
         self,
         source_language: Optional[str] = None,
         target_language: Optional[str] = None,
     ) -> BaseTranslator:
-        """Создает OpenRouter с текущими настройками config.json."""
         provider = config.get("providers", "openrouter") or {}
 
         api_key = config.provider_api_key("openrouter")
-        model = str(provider.get("model", "gpt-oss-20b:free")).strip()
+        model = str(provider.get("model", "gemma-4-26b-a4b-it:free")).strip()
         system_prompt = str(provider.get("system_prompt", "")).strip()
 
         if source_language is None:
@@ -187,15 +130,36 @@ class ProviderRegistry:
 
         return OpenRouterTranslator(
             api_key=api_key,
-            model=model or "gpt-oss-20b:free",
+            model=model or "gemma-4-26b-a4b-it:free",
             system_prompt=system_prompt,
             source_language=str(source_language),
             target_language=str(target_language),
         )
 
-    # ======================================================
-    # Получить экземпляр переводчика
-    # ======================================================
+    def _create_ollama(
+        self,
+        source_language: Optional[str] = None,
+        target_language: Optional[str] = None,
+    ) -> BaseTranslator:
+        """Создает Ollama с текущими настройками config.json."""
+        provider = config.get("providers", "ollama") or {}
+
+        host = str(provider.get("host", "http://127.0.0.1:11434")).strip()
+        model = str(provider.get("model", "")).strip()
+        system_prompt = str(provider.get("system_prompt", "")).strip()
+
+        if source_language is None:
+            source_language = provider.get("source_language", "en")
+        if target_language is None:
+            target_language = provider.get("target_language", "ru")
+
+        return OllamaTranslator(
+            host=host or "http://127.0.0.1:11434",
+            model=model,
+            system_prompt=system_prompt,
+            source_language=str(source_language),
+            target_language=str(target_language),
+        )
 
     def create(
         self,
@@ -204,18 +168,6 @@ class ProviderRegistry:
         target_language: Optional[str] = None,
         require_enabled: bool = True,
     ) -> BaseTranslator:
-        """
-        Создает экземпляр провайдера.
-
-        source_language/target_language позволяют TranslationManager
-        передать конкретное направление:
-
-            incoming: en -> ru
-            outgoing: ru -> en
-
-        require_enabled=True защищает от использования выключенного
-        провайдера. Для старого кода можно отключить эту проверку.
-        """
         provider = self._providers.get(provider_id)
 
         if provider is None:
@@ -243,10 +195,6 @@ class ProviderRegistry:
             target_language=target_language,
         )
 
-    # ======================================================
-    # Получить информацию
-    # ======================================================
-
     def provider_info(self, provider_id: str) -> ProviderInfo:
         provider = self._providers[provider_id]
 
@@ -258,19 +206,11 @@ class ProviderRegistry:
             requires_api_key=provider["requires_api_key"],
         )
 
-    # ======================================================
-    # Все провайдеры
-    # ======================================================
-
     def providers(self) -> list[ProviderInfo]:
         return [
             self.provider_info(provider_id)
             for provider_id in self._providers
         ]
-
-    # ======================================================
-    # Только активные
-    # ======================================================
 
     def active_providers(self) -> list[ProviderInfo]:
         return [
@@ -278,10 +218,6 @@ class ProviderRegistry:
             for provider in self.providers()
             if provider.enabled and provider.configured
         ]
-
-    # ======================================================
-    # Проверка существования
-    # ======================================================
 
     def exists(self, provider_id: str) -> bool:
         return provider_id in self._providers
