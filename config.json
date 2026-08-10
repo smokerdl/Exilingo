@@ -33,8 +33,8 @@
         },
         "groq": {
             "enabled": false,
-            "model": "",
-            "system_prompt": "",
+            "model": "openai/gpt-oss-20b",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru"
         },
