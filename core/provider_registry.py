@@ -6,6 +6,7 @@ from typing import Callable, Optional
 from providers.base import BaseTranslator
 from providers.google_translate import GoogleTranslateTranslator
 from providers.gemini import GeminiTranslator
+from providers.groq import GroqTranslator
 from providers.openrouter import OpenRouterTranslator
 from providers.ollama import OllamaTranslator
 
@@ -46,7 +47,7 @@ class ProviderRegistry:
             },
             "groq": {
                 "name": "Groq",
-                "factory": None,
+                "factory": self._create_groq,
                 "requires_api_key": True,
             },
             "openrouter": {
@@ -107,6 +108,30 @@ class ProviderRegistry:
         return GeminiTranslator(
             api_key=api_key,
             model=model or "gemini-3.5-flash-lite",
+            system_prompt=system_prompt,
+            source_language=str(source_language),
+            target_language=str(target_language),
+        )
+
+    def _create_groq(
+        self,
+        source_language: Optional[str] = None,
+        target_language: Optional[str] = None,
+    ) -> BaseTranslator:
+        provider = config.get("providers", "groq") or {}
+
+        api_key = config.provider_api_key("groq")
+        model = str(provider.get("model", "openai/gpt-oss-20b")).strip()
+        system_prompt = str(provider.get("system_prompt", "")).strip()
+
+        if source_language is None:
+            source_language = provider.get("source_language", "en")
+        if target_language is None:
+            target_language = provider.get("target_language", "ru")
+
+        return GroqTranslator(
+            api_key=api_key,
+            model=model or "openai/gpt-oss-20b",
             system_prompt=system_prompt,
             source_language=str(source_language),
             target_language=str(target_language),
