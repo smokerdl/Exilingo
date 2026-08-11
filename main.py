@@ -181,9 +181,22 @@ class ExilingoApp:
         log_path = config.log_path
 
         if not log_path:
+            self.logger.warning(
+                "Path of Exile log path is not configured. Opening settings for first-time setup."
+            )
+
+            if not self._open_settings_dialog():
+                raise RuntimeError(
+                    "Path of Exile log path is not configured. "
+                    "Configure general.log_path in Settings."
+                )
+
+            log_path = config.log_path
+
+        if not log_path:
             raise RuntimeError(
                 "Path of Exile log path is not configured. "
-                "Set general.log_path in config.json."
+                "Configure general.log_path in Settings."
             )
 
         self.logger.info(
@@ -242,8 +255,8 @@ class ExilingoApp:
                 "Invalid overlay font size in config; keeping current font size."
             )
 
-    def open_settings(self):
-        """Открывает полноценное окно настроек Exilingo без системной шапки."""
+    def _open_settings_dialog(self):
+        """Открывает окно настроек без системной шапки и возвращает результат."""
 
         self.logger.info("Settings window opened.")
 
@@ -251,8 +264,7 @@ class ExilingoApp:
             dialog = SettingsDialog(self.overlay)
 
             # Убираем стандартную Windows-шапку с белой полосой
-            # "Exilingo - Настройки". Сам диалог остаётся обычным
-            # модальным QDialog с кнопками OK/Cancel внутри.
+            # "Exilingo - Настройки".
             dialog.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
             )
@@ -265,8 +277,15 @@ class ExilingoApp:
             else:
                 self.logger.info("Settings cancelled.")
 
+            return accepted
+
         except Exception:
             self.logger.exception("Unhandled exception while opening settings.")
+            return False
+
+    def open_settings(self):
+        """Открывает полноценное окно настроек Exilingo без системной шапки."""
+        self._open_settings_dialog()
 
     # =======================================================
     # Log Reader
