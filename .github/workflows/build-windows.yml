@@ -27,5 +27,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Exilingo-test-windows
-          path: dist/Exilingo-test.zip
+          path: dist/Exilingo
           if-no-files-found: error
