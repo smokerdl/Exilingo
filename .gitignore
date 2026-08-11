@@ -7,6 +7,11 @@ env/
 __pycache__/
 *.pyc
 
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
 # Переменные окружения и секреты
 .env
 
