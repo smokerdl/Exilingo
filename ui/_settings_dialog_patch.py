@@ -12,20 +12,14 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QScrollBar,
     QTabBar,
+    QStyle,
+    QStyleOptionSpinBox,
     QWidget,
 )
 
 
 class _SettingsDialogMouseHandler(QObject):
-    """Mouse interaction helper for the frameless settings dialog.
-
-    The dialog intentionally has no native title bar, so it needs its own
-    drag handling. Interactive controls keep their normal mouse behavior.
-
-    Spin-box arrows are handled explicitly because the frameless-dialog
-    mouse filter can otherwise interfere with the native QSpinBox arrow
-    hit-testing on some Qt/Windows style combinations.
-    """
+    """Mouse interaction helper for the frameless settings dialog."""
 
     def __init__(self, dialog: QDialog):
         super().__init__(dialog)
@@ -51,37 +45,65 @@ class _SettingsDialogMouseHandler(QObject):
 
     @staticmethod
     def _handle_spinbox_click(widget: QAbstractSpinBox, event) -> bool:
-        """Handle clicks on the visible ▲/▼ area of a spin box.
+        """Handle the visible QSpinBox ▲/▼ buttons explicitly.
 
-        Qt normally handles these buttons itself, but the custom event filter
-        used by the frameless dialog can prevent the style's complex-control
-        hit test from identifying the arrow sub-control reliably.
+        The frameless-dialog event filter can interfere with Qt's native
+        spin-box mouse handling. Use the style's actual button rectangles
+        when available, with a geometry fallback for custom styles.
 
-        We therefore use the actual geometry of the spin box and treat the
-        rightmost button-sized area as the arrow control. This is independent
-        of the active Windows style and works with the custom stylesheet.
+        We change the value directly rather than calling stepUp()/stepDown(),
+        so the visible ▲ always increases the numeric value and ▼ always
+        decreases it, regardless of inverted-control settings.
         """
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
         pos = event.position().toPoint()
 
-        # QSpinBox's arrow buttons are rendered on the right side. Their
-        # width is approximately the control height on the Windows styles we
-        # support, but keep a sensible bounded range for different DPI
-        # settings.
-        arrow_width = max(20, min(32, widget.height()))
+        # Prefer the exact rectangles used by the active Qt style.
+        option = QStyleOptionSpinBox()
+        widget.initStyleOption(option)
 
+        up_rect = widget.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxUp,
+            widget,
+        )
+        down_rect = widget.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxDown,
+            widget,
+        )
+
+        if up_rect.isValid() and up_rect.contains(pos):
+            widget.setValue(
+                min(widget.value() + widget.singleStep(), widget.maximum())
+            )
+            return True
+
+        if down_rect.isValid() and down_rect.contains(pos):
+            widget.setValue(
+                max(widget.value() - widget.singleStep(), widget.minimum())
+            )
+            return True
+
+        # Fallback for styles that do not expose useful sub-control geometry.
+        arrow_width = max(20, min(32, widget.height()))
         if pos.x() < widget.width() - arrow_width:
             return False
 
         midpoint = widget.height() / 2
-
         if pos.y() < midpoint:
-            widget.stepUp()
-            return True
+            widget.setValue(
+                min(widget.value() + widget.singleStep(), widget.maximum())
+            )
+        else:
+            widget.setValue(
+                max(widget.value() - widget.singleStep(), widget.minimum())
+            )
 
-        widget.stepDown()
         return True
 
     def eventFilter(self, watched: QObject, event) -> bool:
