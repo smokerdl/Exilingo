@@ -4,12 +4,12 @@
     },
     "overlay": {
         "geometry": {
-            "x": -1,
+            "x": 0,
             "y": 88,
             "w": 704,
             "h": 286
         },
-        "font_size": 13,
+        "font_size": 15,
         "outgoing_channel": "local"
     },
     "game_chat": {
@@ -32,7 +32,7 @@
             "target_language": "ru"
         },
         "groq": {
-            "enabled": false,
+            "enabled": true,
             "model": "openai/gpt-oss-20b",
             "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
@@ -48,7 +48,7 @@
         "ollama": {
             "enabled": true,
             "host": "http://127.0.0.1:11434",
-            "model": "gemma4:e4b",
+            "model": "bjoernb/gemma4-e2b-fast:latest",
             "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru"
@@ -65,7 +65,6 @@
             "google"
         ],
         "party": [
-            "openrouter",
             "gemini",
             "google"
         ],
@@ -73,20 +72,18 @@
             "google"
         ],
         "whisper": [
-            "ollama",
-            "openrouter",
             "gemini",
             "google"
         ]
     },
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
-        "x": -1,
+        "x": 0,
         "y": 88,
         "w": 704,
         "h": 286
     },
-    "font_size": 13,
+    "font_size": 15,
     "translation": {
         "provider": "google",
         "source_language": "en",
