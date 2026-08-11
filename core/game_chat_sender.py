@@ -37,9 +37,10 @@ class GameChatSender:
 
     Для Local есть особенность PoE: после предыдущего сообщения игра
     сохраняет последний специальный символ канала в строке ввода.
-    Если новое сообщение Local не содержит символа, он не заменяется,
-    а остаётся перед текстом. Поэтому перед вставкой Local-сообщения
-    мы дополнительно нажимаем Backspace один раз после получения фокуса.
+    Кроме того, в поле ввода может оставаться больше одного символа.
+    Поэтому перед вставкой Local-сообщения после получения фокуса
+    выполняется двойной клик по полю ввода, чтобы выделить его текущее
+    содержимое. После этого Ctrl+V заменяет выделенный текст целиком.
 
     Pipeline для обычных каналов:
 
@@ -63,7 +64,7 @@ class GameChatSender:
           ↓
         left click
           ↓
-        Backspace
+        double click для выделения содержимого
           ↓
         Clipboard
           ↓
@@ -73,6 +74,7 @@ class GameChatSender:
     """
 
     DEFAULT_CLICK_DELAY = 0.10
+    DEFAULT_DOUBLE_CLICK_INTERVAL = 0.05
     DEFAULT_PASTE_DELAY = 0.10
     DEFAULT_ENTER_DELAY = 0.10
 
@@ -246,9 +248,9 @@ class GameChatSender:
 
             if local:
                 self._debug(
-                    "STAGE 3/6: Local channel -> Backspace to clear retained channel prefix"
+                    "STAGE 3/6: Local channel -> double click to select existing input"
                 )
-                self._press_key(VK_BACK)
+                self._double_click_at_current_position()
                 time.sleep(self.DEFAULT_PASTE_DELAY)
             else:
                 self._debug("STAGE 3/6: no Local cleanup required")
@@ -315,6 +317,13 @@ class GameChatSender:
             0,
             0,
         )
+
+    @classmethod
+    def _double_click_at_current_position(cls):
+        """Делает двойной клик по текущей позиции курсора."""
+        cls._click_at_current_position()
+        time.sleep(cls.DEFAULT_DOUBLE_CLICK_INTERVAL)
+        cls._click_at_current_position()
 
     # ========================================================
     # Keyboard
