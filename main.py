@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtWidgets import QApplication
 
 from core.logger import (
@@ -86,18 +86,27 @@ class OutgoingHotkeyListener(QObject):
         self.send_requested.emit()
 
     def stop(self):
-        if self._keyboard is None:
+        """Безопасно снимает F5; повторный вызов ничего не делает."""
+        keyboard_module = self._keyboard
+
+        if keyboard_module is None:
             return
 
         try:
-            self._keyboard.remove_hotkey("f5")
+            keyboard_module.remove_hotkey("f5")
             self.logger.debug("F5 unregistered.")
+        except KeyError:
+            # stop() может вызываться из close_application() и затем
+            # ещё раз из run(). Если hotkey уже снят, это не ошибка.
+            self.logger.debug("F5 was already unregistered.")
         except Exception as e:
             self.logger.error(
                 "Failed to unregister F5: %s",
                 e,
                 exc_info=True,
             )
+        finally:
+            self._keyboard = None
 
 
 class ExilingoApp:
@@ -209,17 +218,49 @@ class ExilingoApp:
 
     # -------------------------------------------------------
 
+    def _apply_runtime_settings(self):
+        """Применяет изменённые настройки Overlay к уже запущенному окну."""
+
+        geometry = config.overlay_geometry or {}
+
+        try:
+            self.overlay.setGeometry(
+                int(geometry.get("x", self.overlay.x())),
+                int(geometry.get("y", self.overlay.y())),
+                int(geometry.get("w", self.overlay.width())),
+                int(geometry.get("h", self.overlay.height())),
+            )
+        except (TypeError, ValueError):
+            self.logger.warning(
+                "Invalid overlay geometry in config; keeping current geometry."
+            )
+
+        try:
+            self.overlay.set_font_size(int(config.font_size))
+        except (TypeError, ValueError):
+            self.logger.warning(
+                "Invalid overlay font size in config; keeping current font size."
+            )
+
     def open_settings(self):
-        """Открывает полноценное окно настроек Exilingo."""
+        """Открывает полноценное окно настроек Exilingo без системной шапки."""
 
         self.logger.info("Settings window opened.")
 
         try:
-            accepted = SettingsDialog.open_settings(
-                self.overlay,
+            dialog = SettingsDialog(self.overlay)
+
+            # Убираем стандартную Windows-шапку с белой полосой
+            # "Exilingo - Настройки". Сам диалог остаётся обычным
+            # модальным QDialog с кнопками OK/Cancel внутри.
+            dialog.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
             )
 
+            accepted = dialog.exec() == dialog.DialogCode.Accepted
+
             if accepted:
+                self._apply_runtime_settings()
                 self.logger.info("Settings saved.")
             else:
                 self.logger.info("Settings cancelled.")
