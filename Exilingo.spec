@@ -2,13 +2,11 @@
 
 from PyInstaller.utils.hooks import collect_submodules
 
-
 hiddenimports = []
 hiddenimports += collect_submodules("providers")
 hiddenimports += collect_submodules("core")
 hiddenimports += collect_submodules("ui")
 hiddenimports += collect_submodules("deep_translator")
-
 
 analysis = Analysis(
     ["main.py"],
@@ -23,17 +21,13 @@ analysis = Analysis(
     noarchive=False,
 )
 
-pyz = PYZ(
-    analysis.pure,
-    analysis.zipped_data,
-)
+pyz = PYZ(analysis.pure, analysis.zipped_data)
 
 exe = EXE(
     pyz,
     analysis.scripts,
-    analysis.binaries,
-    analysis.datas,
     [],
+    exclude_binaries=True,
     name="Exilingo",
     debug=False,
     bootloader_ignore_signals=False,
@@ -41,4 +35,14 @@ exe = EXE(
     upx=False,
     console=False,
     disable_windowed_traceback=False,
+)
+
+coll = COLLECT(
+    exe,
+    analysis.binaries,
+    analysis.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="Exilingo",
 )
