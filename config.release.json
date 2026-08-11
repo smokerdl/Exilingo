@@ -1,0 +1,65 @@
+{
+    "general": {
+        "log_path": ""
+    },
+    "overlay": {
+        "geometry": {
+            "x": 1,
+            "y": 11,
+            "w": 700,
+            "h": 309
+        },
+        "font_size": 13,
+        "outgoing_channel": "local"
+    },
+    "game_chat": {
+        "input_point": {
+            "x": 0,
+            "y": 0
+        }
+    },
+    "providers": {
+        "google": {
+            "enabled": true,
+            "source_language": "en",
+            "target_language": "ru"
+        },
+        "gemini": {
+            "enabled": false,
+            "model": "gemini-2.5-flash",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
+            "source_language": "en",
+            "target_language": "ru"
+        },
+        "groq": {
+            "enabled": false,
+            "model": "openai/gpt-oss-20b",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
+            "source_language": "en",
+            "target_language": "ru"
+        },
+        "openrouter": {
+            "enabled": false,
+            "model": "gemma-4-26b-a4b-it:free",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
+            "source_language": "en",
+            "target_language": "ru"
+        },
+        "ollama": {
+            "enabled": false,
+            "host": "http://127.0.0.1:11434",
+            "model": "",
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
+            "source_language": "en",
+            "target_language": "ru"
+        }
+    },
+    "routing": {
+        "global": ["google"],
+        "local": ["google"],
+        "trade": ["google"],
+        "party": ["google"],
+        "guild": ["google"],
+        "whisper": ["google"]
+    }
+}
