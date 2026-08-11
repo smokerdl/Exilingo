@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Dict, List, Optional
 
+import httpx
+
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
@@ -79,6 +81,34 @@ AI_PROVIDERS = (
     "openrouter",
     "ollama",
 )
+
+
+class OllamaModelComboBox(QComboBox):
+    """QComboBox совместимый с прежним интерфейсом QLineEdit."""
+
+    def text(self) -> str:
+        return self.currentText()
+
+    def setText(self, text: str):
+        value = str(text or "").strip()
+
+        if value:
+            index = self.findText(
+                value,
+                Qt.MatchFlag.MatchExactly,
+            )
+
+            if index < 0:
+                self.addItem(value)
+                index = self.findText(
+                    value,
+                    Qt.MatchFlag.MatchExactly,
+                )
+
+            if index >= 0:
+                self.setCurrentIndex(index)
+        elif self.count():
+            self.setCurrentIndex(0)
 
 
 # ============================================================
@@ -996,7 +1026,10 @@ class SettingsDialog(QDialog):
         # Model
         # ----------------------------------------------------
 
-        model = QLineEdit()
+        if host:
+            model = OllamaModelComboBox()
+        else:
+            model = QLineEdit()
 
         form.addRow(
             "Модель:",
@@ -1064,6 +1097,23 @@ class SettingsDialog(QDialog):
             group,
         )
 
+        if host:
+            refresh_models_button = QPushButton(
+                "Обновить список моделей",
+            )
+
+            refresh_models_button.setToolTip(
+                "Получить список установленных моделей из Ollama."
+            )
+
+            refresh_models_button.clicked.connect(
+                self._refresh_ollama_models,
+            )
+
+            layout.addWidget(
+                refresh_models_button,
+            )
+
         direction_info = QLabel(
             "Для исходящих сообщений направление переворачивается автоматически."
         )
@@ -1095,6 +1145,71 @@ class SettingsDialog(QDialog):
         layout.addStretch()
 
         return page
+
+    # ========================================================
+    # Ollama models
+    # ========================================================
+
+    def _refresh_ollama_models(self):
+        """Обновляет список установленных моделей из Ollama /api/tags."""
+
+        model_widget = getattr(self, "ollama_model", None)
+        host_widget = getattr(self, "ollama_host", None)
+
+        if model_widget is None or host_widget is None:
+            return
+
+        host = host_widget.text().strip() or "http://127.0.0.1:11434"
+        current_model = model_widget.currentText().strip()
+
+        try:
+            response = httpx.get(
+                f"{host.rstrip('/')}/api/tags",
+                timeout=2.0,
+            )
+            response.raise_for_status()
+
+            payload = response.json()
+            models = payload.get("models", [])
+
+            model_names = sorted(
+                {
+                    str(item.get("name", "")).strip()
+                    for item in models
+                    if isinstance(item, dict) and str(item.get("name", "")).strip()
+                },
+                key=str.casefold,
+            )
+
+            if current_model and current_model not in model_names:
+                model_names.insert(0, current_model)
+
+            model_widget.blockSignals(True)
+            model_widget.clear()
+            model_widget.addItems(model_names)
+
+            if current_model:
+                index = model_widget.findText(
+                    current_model,
+                    Qt.MatchFlag.MatchExactly,
+                )
+                if index >= 0:
+                    model_widget.setCurrentIndex(index)
+            elif model_widget.count():
+                model_widget.setCurrentIndex(0)
+
+            model_widget.blockSignals(False)
+            model_widget.setToolTip(
+                f"Установлено моделей: {len(model_names)}. "
+                "Список получен из Ollama."
+            )
+
+        except Exception as exc:
+            model_widget.blockSignals(False)
+            model_widget.setToolTip(
+                "Не удалось получить список моделей Ollama. "
+                f"Текущая модель сохранена. Ошибка: {exc}"
+            )
 
     # ========================================================
     # Provider selection
@@ -1835,6 +1950,12 @@ class SettingsDialog(QDialog):
                 )
 
         # ----------------------------------------------------
+        # Ollama models
+        # ----------------------------------------------------
+
+        self._refresh_ollama_models()
+
+        # ----------------------------------------------------
         # Routing
         # ----------------------------------------------------
 
@@ -2224,6 +2345,8 @@ class SettingsDialog(QDialog):
                     "http://127.0.0.1:11434",
                 )
             )
+
+            self._refresh_ollama_models()
 
         else:
             api_widget = getattr(
