@@ -44,23 +44,20 @@ class _SettingsDialogMouseHandler(QObject):
         )
 
     @staticmethod
-    def _handle_spinbox_click(widget: QAbstractSpinBox, event) -> bool:
-        """Handle the visible QSpinBox ▲/▼ buttons explicitly.
+    def _find_parent_spinbox(widget: QWidget):
+        """Return the QAbstractSpinBox that owns an internal editor widget."""
+        current = widget
 
-        The frameless-dialog event filter can interfere with Qt's native
-        spin-box mouse handling. Use the style's actual button rectangles
-        when available, with a geometry fallback for custom styles.
+        while current is not None:
+            if isinstance(current, QAbstractSpinBox):
+                return current
+            current = current.parentWidget()
 
-        We change the value directly rather than calling stepUp()/stepDown(),
-        so the visible ▲ always increases the numeric value and ▼ always
-        decreases it, regardless of inverted-control settings.
-        """
-        if event.button() != Qt.MouseButton.LeftButton:
-            return False
+        return None
 
-        pos = event.position().toPoint()
-
-        # Prefer the exact rectangles used by the active Qt style.
+    @staticmethod
+    def _spinbox_arrow_rects(widget: QAbstractSpinBox):
+        """Return the exact ▲/▼ rectangles used by the active Qt style."""
         option = QStyleOptionSpinBox()
         widget.initStyleOption(option)
 
@@ -77,32 +74,114 @@ class _SettingsDialogMouseHandler(QObject):
             widget,
         )
 
+        return up_rect, down_rect
+
+    @classmethod
+    def _spinbox_at_event(cls, watched: QWidget, event):
+        """Return (spinbox, local_position) for a spinbox or its editor child."""
+        spinbox = cls._find_parent_spinbox(watched)
+
+        if spinbox is None:
+            return None, None
+
+        global_pos = watched.mapToGlobal(
+            event.position().toPoint(),
+        )
+        local_pos = spinbox.mapFromGlobal(
+            global_pos,
+        )
+
+        return spinbox, local_pos
+
+    @classmethod
+    def _handle_spinbox_click(cls, watched: QWidget, event) -> bool:
+        """Handle visible QSpinBox ▲/▼ buttons, including clicks on its editor."""
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        spinbox, pos = cls._spinbox_at_event(
+            watched,
+            event,
+        )
+
+        if spinbox is None:
+            return False
+
+        up_rect, down_rect = cls._spinbox_arrow_rects(
+            spinbox,
+        )
+
         if up_rect.isValid() and up_rect.contains(pos):
-            widget.setValue(
-                min(widget.value() + widget.singleStep(), widget.maximum())
+            spinbox.setValue(
+                min(
+                    spinbox.value() + spinbox.singleStep(),
+                    spinbox.maximum(),
+                )
             )
             return True
 
         if down_rect.isValid() and down_rect.contains(pos):
-            widget.setValue(
-                max(widget.value() - widget.singleStep(), widget.minimum())
+            spinbox.setValue(
+                max(
+                    spinbox.value() - spinbox.singleStep(),
+                    spinbox.minimum(),
+                )
             )
             return True
 
         # Fallback for styles that do not expose useful sub-control geometry.
-        arrow_width = max(20, min(32, widget.height()))
-        if pos.x() < widget.width() - arrow_width:
+        arrow_width = max(
+            20,
+            min(32, spinbox.height()),
+        )
+
+        if pos.x() < spinbox.width() - arrow_width:
             return False
 
-        midpoint = widget.height() / 2
+        midpoint = spinbox.height() / 2
+
         if pos.y() < midpoint:
-            widget.setValue(
-                min(widget.value() + widget.singleStep(), widget.maximum())
+            spinbox.setValue(
+                min(
+                    spinbox.value() + spinbox.singleStep(),
+                    spinbox.maximum(),
+                )
             )
         else:
-            widget.setValue(
-                max(widget.value() - widget.singleStep(), widget.minimum())
+            spinbox.setValue(
+                max(
+                    spinbox.value() - spinbox.singleStep(),
+                    spinbox.minimum(),
+                )
             )
+
+        return True
+
+    @classmethod
+    def _update_spinbox_cursor(cls, watched: QWidget, event) -> bool:
+        """Show an arrow cursor over ▲/▼ even when the internal editor receives the event."""
+        spinbox, pos = cls._spinbox_at_event(
+            watched,
+            event,
+        )
+
+        if spinbox is None:
+            return False
+
+        up_rect, down_rect = cls._spinbox_arrow_rects(
+            spinbox,
+        )
+
+        if (
+            (up_rect.isValid() and up_rect.contains(pos))
+            or (down_rect.isValid() and down_rect.contains(pos))
+        ):
+            watched.setCursor(
+                Qt.CursorShape.ArrowCursor,
+            )
+        else:
+            # Return control of the cursor to the native widget/editor.
+            watched.unsetCursor()
 
         return True
 
@@ -116,12 +195,14 @@ class _SettingsDialogMouseHandler(QObject):
         # Spin-box arrows
         # ----------------------------------------------------
 
-        if (
-            event_type == QEvent.Type.MouseButtonPress
-            and isinstance(watched, QAbstractSpinBox)
-        ):
-            if self._handle_spinbox_click(watched, event):
-                return True
+        if event_type == QEvent.Type.MouseButtonPress:
+            if isinstance(watched, QAbstractSpinBox) or isinstance(watched, QLineEdit):
+                if self._handle_spinbox_click(watched, event):
+                    return True
+
+        if event_type == QEvent.Type.MouseMove:
+            if isinstance(watched, QAbstractSpinBox) or isinstance(watched, QLineEdit):
+                self._update_spinbox_cursor(watched, event)
 
         # ----------------------------------------------------
         # Frameless dialog dragging
