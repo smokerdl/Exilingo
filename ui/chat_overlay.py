@@ -6,7 +6,6 @@ import json
 import ctypes
 
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent, QTimer
-from PyQt6.QtGui import QTextCursor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
     QLabel, QFrame, QApplication, QSizeGrip, QComboBox,
