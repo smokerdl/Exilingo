@@ -5,7 +5,8 @@ import os
 import json
 import ctypes
 
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent, QTimer
+from PyQt6.QtGui import QTextCursor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
     QLabel, QFrame, QApplication, QSizeGrip, QComboBox,
@@ -308,11 +309,17 @@ class ChatOverlay(QWidget):
         self.input_field.setCursorPosition(len(self.input_field.text()))
         self.set_input_mode(False)
 
+    def _scroll_chat_to_bottom(self):
+        """Гарантированно возвращает историю чата к последнему сообщению."""
+        scrollbar = self.chat_history.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
     def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
         name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
         html = f"""<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;"><span style="color:{name_color}; font-weight:bold;">{channel_prefix}{sender}: </span><span style="color:{text_color};">{text}</span></div>"""
         self.chat_history.append(html)
+        QTimer.singleShot(0, self._scroll_chat_to_bottom)
 
 
 if __name__ == "__main__":
