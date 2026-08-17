@@ -21,6 +21,11 @@ class LogReaderThread(QThread):
     # Сигнал для передачи распарсенного сообщения чата в GUI
     new_chat_message = Signal(ChatMessage)
 
+    # Сигнал изменения фокуса окна Path of Exile.
+    # True  = [WINDOW] Gained focus
+    # False = [WINDOW] Lost focus
+    window_focus_changed = Signal(bool)
+
     # Сигнал текстового статуса
     status_changed = Signal(str)
 
@@ -69,6 +74,16 @@ class LogReaderThread(QThread):
                     line = f.readline()
 
                     if line:
+                        stripped_line = line.strip()
+
+                        if stripped_line.endswith("[WINDOW] Lost focus"):
+                            self.window_focus_changed.emit(False)
+                            continue
+
+                        if stripped_line.endswith("[WINDOW] Gained focus"):
+                            self.window_focus_changed.emit(True)
+                            continue
+
                         entry = self.parser.parse_line(line)
 
                         if entry and entry.chat:
@@ -117,6 +132,9 @@ if __name__ == "__main__":
     def handle_new_message(msg: ChatMessage):
         print(f"[{msg.channel.upper()}] {msg.sender}: {msg.text}")
 
+    def handle_focus_changed(focused: bool):
+        print(f"[WINDOW FOCUS] {'Gained' if focused else 'Lost'}")
+
     def handle_status(status: str):
         print(f"[STATUS] {status}")
 
@@ -126,6 +144,7 @@ if __name__ == "__main__":
     )
 
     reader.new_chat_message.connect(handle_new_message)
+    reader.window_focus_changed.connect(handle_focus_changed)
     reader.status_changed.connect(handle_status)
 
     reader.start()
