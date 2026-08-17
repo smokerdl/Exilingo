@@ -19,6 +19,7 @@ from core.translation_router import TranslationRouter
 from core.config_manager import config
 from core.provider_registry import ProviderRegistry
 from core.game_chat_sender import GameChatSender
+from core.game_window import GameWindowController
 
 from ui.chat_overlay import ChatOverlay, GlobalHotkeyListener
 from ui.settings_dialog import SettingsDialog
@@ -123,6 +124,7 @@ class ExilingoApp:
         # ---------------------------------------------------
 
         self.overlay = ChatOverlay()
+        self.game_window_controller = GameWindowController()
 
         self.overlay.close_requested.connect(self.close_application)
 
@@ -210,6 +212,8 @@ class ExilingoApp:
         )
 
         self.log_reader.new_chat_message.connect(self.on_new_chat_message)
+
+        self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
 
         self.log_reader.status_changed.connect(self.on_log_status)
 
@@ -306,6 +310,45 @@ class ExilingoApp:
         context = MessageContext.from_chat_message(msg)
 
         self.translation_manager.enqueue(context)
+
+    def on_game_focus_changed(self, focused: bool):
+        """Синхронизирует состояние Overlay с фактическим состоянием окна PoE."""
+
+        self.logger.info(
+            "PoE window focus event: %s",
+            "Gained focus" if focused else "Lost focus",
+        )
+
+        minimized = self.game_window_controller.is_minimized()
+
+        if minimized is True:
+            self.logger.info("PoE window is minimized -> minimizing Exilingo Overlay.")
+            if not self.overlay.isMinimized():
+                self.overlay.showMinimized()
+            return
+
+        if minimized is False:
+            self.logger.info("PoE window is not minimized -> restoring Exilingo Overlay.")
+            if self.overlay.isMinimized():
+                self.overlay.showNormal()
+            return
+
+        self.logger.warning(
+            "PoE window could not be located; keeping current Exilingo Overlay state."
+        )
+
+    def _sync_overlay_with_game_window(self):
+        """Синхронизирует Overlay с PoE при запуске Exilingo."""
+
+        minimized = self.game_window_controller.is_minimized()
+
+        if minimized is True:
+            self.logger.info("PoE is already minimized at startup -> minimizing Overlay.")
+            self.overlay.showMinimized()
+        elif minimized is False:
+            self.logger.info("PoE is not minimized at startup -> keeping Overlay normal.")
+        else:
+            self.logger.info("PoE window not found at startup -> keeping Overlay normal.")
 
     # =======================================================
     # Outgoing Overlay -> TranslationManager
@@ -523,6 +566,7 @@ class ExilingoApp:
         self.logger.info("LogReader monitoring started.")
 
         self.overlay.show()
+        self._sync_overlay_with_game_window()
 
         self.overlay.add_message(
             "",
