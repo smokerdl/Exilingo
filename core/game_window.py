@@ -11,6 +11,40 @@ kernel32 = ctypes.windll.kernel32
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
+# Explicit WinAPI prototypes are important on 64-bit Windows so HWND/HANDLE
+# values are not accidentally truncated to 32-bit integers by ctypes.
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.IsWindowVisible.restype = wintypes.BOOL
+
+user32.IsIconic.argtypes = [wintypes.HWND]
+user32.IsIconic.restype = wintypes.BOOL
+
+user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+user32.GetWindowTextLengthW.restype = ctypes.c_int
+
+user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+user32.GetWindowTextW.restype = ctypes.c_int
+
+user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+
+user32.EnumWindows.argtypes = [ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM), wintypes.LPARAM]
+user32.EnumWindows.restype = wintypes.BOOL
+
+kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+kernel32.OpenProcess.restype = wintypes.HANDLE
+
+kernel32.QueryFullProcessImageNameW.argtypes = [
+    wintypes.HANDLE,
+    wintypes.DWORD,
+    wintypes.LPWSTR,
+    ctypes.POINTER(wintypes.DWORD),
+]
+kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+
+kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+kernel32.CloseHandle.restype = wintypes.BOOL
+
 
 class GameWindowController:
     """Finds the Path of Exile top-level window and reports its state."""
@@ -34,7 +68,13 @@ class GameWindowController:
         """Finds a visible top-level PoE window and caches its HWND."""
         found: list[int] = []
 
-        @wintypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        callback_type = ctypes.WINFUNCTYPE(
+            wintypes.BOOL,
+            wintypes.HWND,
+            wintypes.LPARAM,
+        )
+
+        @callback_type
         def enum_callback(hwnd, _lparam):
             if not user32.IsWindowVisible(hwnd):
                 return True
@@ -43,9 +83,8 @@ class GameWindowController:
             process_name = self._process_name(hwnd)
 
             if self._matches_process(process_name):
-                if title or user32.IsIconic(hwnd):
-                    found.append(int(hwnd))
-                    return False
+                found.append(int(hwnd))
+                return False
 
             if self._matches_title(title):
                 found.append(int(hwnd))
