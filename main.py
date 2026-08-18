@@ -2,7 +2,7 @@ import sys
 
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from core.logger import (
     get_logger,
@@ -115,9 +115,6 @@ class ExilingoApp:
         self.logger = get_logger("Main")
 
         self.app = QApplication(sys.argv)
-
-        # Application-level Quit/Close should be explicit. The system tray
-        # keeps the process alive while the Overlay itself is hidden.
         self.app.setQuitOnLastWindowClosed(False)
 
         self.logger.info("Exilingo application initialized.")
@@ -139,9 +136,7 @@ class ExilingoApp:
 
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(
-            self.app.style().standardIcon(
-                self.app.style().StandardPixmap.SP_ComputerIcon
-            )
+            self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         )
         self.tray_icon.setToolTip("Exilingo")
 
