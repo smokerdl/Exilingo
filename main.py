@@ -240,10 +240,9 @@ class ExilingoApp:
     # =======================================================
 
     def _show_overlay_from_tray(self):
-        """Показывает Overlay и возвращает его в обычное состояние."""
+        """Показывает Overlay, не забирая focus у текущего окна."""
         self.overlay.show()
         self.overlay.raise_()
-        self.overlay.activateWindow()
 
     def _on_tray_activated(self, reason):
         if reason in {
