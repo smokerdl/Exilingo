@@ -19,6 +19,9 @@ user32.IsWindowVisible.restype = wintypes.BOOL
 user32.IsIconic.argtypes = [wintypes.HWND]
 user32.IsIconic.restype = wintypes.BOOL
 
+user32.GetForegroundWindow.argtypes = []
+user32.GetForegroundWindow.restype = wintypes.HWND
+
 user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
 user32.GetWindowTextLengthW.restype = ctypes.c_int
 
@@ -104,6 +107,15 @@ class GameWindowController:
             return None
         return bool(user32.IsIconic(hwnd))
 
+    def is_foreground(self) -> Optional[bool]:
+        """Returns whether the PoE window is the current foreground window."""
+        hwnd = self.find_window()
+        if not hwnd:
+            return None
+
+        foreground = user32.GetForegroundWindow()
+        return int(foreground) == int(hwnd)
+
     def _matches_process(self, process_name: str) -> bool:
         name = process_name.lower()
         return any(name.startswith(prefix) for prefix in self.PROCESS_NAME_PREFIXES)
@@ -163,3 +175,4 @@ if __name__ == "__main__":
 
     print("PoE HWND:", hex(hwnd) if hwnd else None)
     print("PoE minimized:", controller.is_minimized())
+    print("PoE foreground:", controller.is_foreground())
