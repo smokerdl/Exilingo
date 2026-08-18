@@ -1,7 +1,7 @@
 import sys
 
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
-from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from core.logger import (
@@ -165,7 +165,7 @@ class ExilingoApp:
         # ---------------------------------------------------
 
         self.hotkey_listener = GlobalHotkeyListener()
-        self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
+        self.hotkey_listener.toggle_requested.connect(self.on_toggle_overlay_mode)
 
         self.outgoing_hotkey_listener = OutgoingHotkeyListener()
         self.outgoing_hotkey_listener.send_requested.connect(self.overlay._on_send)
@@ -331,7 +331,7 @@ class ExilingoApp:
         self._open_settings_dialog()
 
     # =======================================================
-    # Log Reader
+    # Log Reader / Overlay state
     # =======================================================
 
     def on_new_chat_message(self, msg: ChatMessage):
@@ -346,43 +346,93 @@ class ExilingoApp:
         context = MessageContext.from_chat_message(msg)
         self.translation_manager.enqueue(context)
 
+    def on_toggle_overlay_mode(self):
+        """Переключает режим Overlay и синхронизирует его при выходе из interactive."""
+
+        previous_input_mode = self.overlay.is_input_mode
+
+        self.overlay.toggle_mode()
+
+        if previous_input_mode and not self.overlay.is_input_mode:
+            # Пользователь вышел из interactive mode. Если PoE в этот момент
+            # не является foreground-окном, click-through Overlay должен
+            # немедленно скрыться, а не оставаться поверх другого приложения.
+            foreground = self.game_window_controller.is_foreground()
+
+            self.logger.info(
+                "Interactive mode disabled; PoE foreground=%r -> syncing Overlay.",
+                foreground,
+            )
+
+            if foreground is True:
+                self._show_overlay_from_tray()
+            elif foreground is False:
+                self.overlay.hide()
+
     def on_game_focus_changed(self, focused: bool):
-        """Синхронизирует видимость Overlay с состоянием окна PoE."""
+        """Синхронизирует Overlay с фокусом PoE только в click-through mode."""
 
         self.logger.info(
             "PoE window focus event: %s",
             "Gained focus" if focused else "Lost focus",
         )
 
-        minimized = self.game_window_controller.is_minimized()
-
-        if minimized is True:
-            self.logger.info("PoE is minimized -> hiding Exilingo Overlay to system tray.")
-            self.overlay.hide()
+        # В interactive mode Overlay специально остаётся независимым от
+        # состояния фокуса игры и всегда остаётся доступным пользователю.
+        if self.overlay.is_input_mode:
+            self.logger.debug(
+                "Interactive mode active -> ignoring PoE focus event."
+            )
             return
 
-        if minimized is False:
-            self.logger.info("PoE is not minimized -> showing Exilingo Overlay.")
-            self._show_overlay_from_tray()
+        if focused:
+            foreground = self.game_window_controller.is_foreground()
+
+            if foreground is True:
+                self.logger.info(
+                    "PoE gained focus in click-through mode -> showing Overlay."
+                )
+                self._show_overlay_from_tray()
+            else:
+                self.logger.warning(
+                    "PoE reported gained focus, but Windows foreground check is %r; "
+                    "keeping Overlay hidden.",
+                    foreground,
+                )
+
             return
 
-        self.logger.warning(
-            "PoE window could not be located; keeping current Exilingo Overlay state."
+        self.logger.info(
+            "PoE lost focus in click-through mode -> hiding Overlay."
         )
+        self.overlay.hide()
 
     def _sync_overlay_with_game_window(self):
         """Синхронизирует Overlay с PoE при запуске Exilingo."""
 
-        minimized = self.game_window_controller.is_minimized()
-
-        if minimized is True:
-            self.logger.info("PoE is already minimized at startup -> hiding Overlay to system tray.")
-            self.overlay.hide()
-        elif minimized is False:
-            self.logger.info("PoE is not minimized at startup -> showing Overlay.")
+        if self.overlay.is_input_mode:
+            self.logger.info(
+                "Interactive mode is active at startup -> keeping Overlay visible."
+            )
             self.overlay.show()
+            return
+
+        foreground = self.game_window_controller.is_foreground()
+
+        if foreground is True:
+            self.logger.info(
+                "PoE is foreground at startup -> showing Overlay."
+            )
+            self.overlay.show()
+        elif foreground is False:
+            self.logger.info(
+                "PoE is not foreground at startup -> hiding Overlay."
+            )
+            self.overlay.hide()
         else:
-            self.logger.info("PoE window not found at startup -> showing Overlay.")
+            self.logger.info(
+                "PoE window not found at startup -> showing Overlay."
+            )
             self.overlay.show()
 
     # =======================================================
