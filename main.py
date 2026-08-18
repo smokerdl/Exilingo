@@ -1,7 +1,8 @@
 import sys
 
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from core.logger import (
     get_logger,
@@ -97,8 +98,6 @@ class OutgoingHotkeyListener(QObject):
             keyboard_module.remove_hotkey("f5")
             self.logger.debug("F5 unregistered.")
         except KeyError:
-            # stop() может вызываться из close_application() и затем
-            # ещё раз из run(). Если hotkey уже снят, это не ошибка.
             self.logger.debug("F5 was already unregistered.")
         except Exception as e:
             self.logger.error(
@@ -117,35 +116,63 @@ class ExilingoApp:
 
         self.app = QApplication(sys.argv)
 
+        # Application-level Quit/Close should be explicit. The system tray
+        # keeps the process alive while the Overlay itself is hidden.
+        self.app.setQuitOnLastWindowClosed(False)
+
         self.logger.info("Exilingo application initialized.")
 
         # ---------------------------------------------------
-        # Overlay
+        # Overlay + PoE window controller
         # ---------------------------------------------------
 
         self.overlay = ChatOverlay()
         self.game_window_controller = GameWindowController()
 
         self.overlay.close_requested.connect(self.close_application)
-
         self.overlay.settings_requested.connect(self.open_settings)
-
-        # Исходящие сообщения из поля ввода Overlay.
         self.overlay.send_message_requested.connect(self.on_outgoing_message)
+
+        # ---------------------------------------------------
+        # System tray
+        # ---------------------------------------------------
+
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(
+            self.app.style().standardIcon(
+                self.app.style().StandardPixmap.SP_ComputerIcon
+            )
+        )
+        self.tray_icon.setToolTip("Exilingo")
+
+        tray_menu = QMenu()
+
+        show_action = QAction("Показать Exilingo", self)
+        show_action.triggered.connect(self._show_overlay_from_tray)
+        tray_menu.addAction(show_action)
+
+        settings_action = QAction("Настройки", self)
+        settings_action.triggered.connect(self.open_settings)
+        tray_menu.addAction(settings_action)
+
+        tray_menu.addSeparator()
+
+        quit_action = QAction("Выйти", self)
+        quit_action.triggered.connect(self.close_application)
+        tray_menu.addAction(quit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        self.tray_icon.show()
 
         # ---------------------------------------------------
         # Hotkey
         # ---------------------------------------------------
 
         self.hotkey_listener = GlobalHotkeyListener()
-
-        # Enter = только переключение режима Overlay.
         self.hotkey_listener.toggle_requested.connect(self.overlay.toggle_mode)
 
-        # F5 = только отправка текущего сообщения.
-        # Режим Overlay при этом НЕ меняется.
         self.outgoing_hotkey_listener = OutgoingHotkeyListener()
-
         self.outgoing_hotkey_listener.send_requested.connect(self.overlay._on_send)
 
         # ---------------------------------------------------
@@ -165,9 +192,7 @@ class ExilingoApp:
         )
 
         self.translation_manager.translation_finished.connect(self.on_message_ready)
-
         self.translation_manager.translation_failed.connect(self.on_translation_failed)
-
         self.translation_manager.start()
 
         # ---------------------------------------------------
@@ -212,17 +237,35 @@ class ExilingoApp:
         )
 
         self.log_reader.new_chat_message.connect(self.on_new_chat_message)
-
         self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
-
         self.log_reader.status_changed.connect(self.on_log_status)
+
+    # =======================================================
+    # System tray
+    # =======================================================
+
+    def _show_overlay_from_tray(self):
+        """Показывает Overlay и возвращает его в обычное состояние."""
+        self.overlay.show()
+        self.overlay.raise_()
+        self.overlay.activateWindow()
+
+    def _on_tray_activated(self, reason):
+        if reason in {
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        }:
+            if self.overlay.isVisible():
+                self.overlay.hide()
+            else:
+                self._show_overlay_from_tray()
 
     # =======================================================
     # Верхняя панель Overlay
     # =======================================================
 
     def close_application(self):
-        """Завершает работу программы."""
+        """Полностью завершает работу программы."""
 
         self.logger.info("Application shutdown requested.")
 
@@ -231,9 +274,12 @@ class ExilingoApp:
         except Exception:
             self.logger.exception("Error while stopping outgoing hotkey listener.")
 
-        self.app.quit()
+        try:
+            self.tray_icon.hide()
+        except Exception:
+            self.logger.exception("Error while hiding system tray icon.")
 
-    # -------------------------------------------------------
+        self.app.quit()
 
     def _apply_runtime_settings(self):
         """Применяет изменённые настройки Overlay к уже запущенному окну."""
@@ -267,8 +313,6 @@ class ExilingoApp:
         try:
             dialog = SettingsDialog(self.overlay)
 
-            # Убираем стандартную Windows-шапку с белой полосой
-            # "Exilingo - Настройки".
             dialog.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
             )
@@ -295,10 +339,7 @@ class ExilingoApp:
     # Log Reader
     # =======================================================
 
-    def on_new_chat_message(
-        self,
-        msg: ChatMessage,
-    ):
+    def on_new_chat_message(self, msg: ChatMessage):
 
         self.logger.info(
             "Incoming chat message: channel=%r sender=%r text=%r",
@@ -308,11 +349,10 @@ class ExilingoApp:
         )
 
         context = MessageContext.from_chat_message(msg)
-
         self.translation_manager.enqueue(context)
 
     def on_game_focus_changed(self, focused: bool):
-        """Синхронизирует состояние Overlay с фактическим состоянием окна PoE."""
+        """Синхронизирует видимость Overlay с состоянием окна PoE."""
 
         self.logger.info(
             "PoE window focus event: %s",
@@ -322,15 +362,13 @@ class ExilingoApp:
         minimized = self.game_window_controller.is_minimized()
 
         if minimized is True:
-            self.logger.info("PoE window is minimized -> minimizing Exilingo Overlay.")
-            if not self.overlay.isMinimized():
-                self.overlay.showMinimized()
+            self.logger.info("PoE is minimized -> hiding Exilingo Overlay to system tray.")
+            self.overlay.hide()
             return
 
         if minimized is False:
-            self.logger.info("PoE window is not minimized -> restoring Exilingo Overlay.")
-            if self.overlay.isMinimized():
-                self.overlay.showNormal()
+            self.logger.info("PoE is not minimized -> showing Exilingo Overlay.")
+            self._show_overlay_from_tray()
             return
 
         self.logger.warning(
@@ -343,21 +381,20 @@ class ExilingoApp:
         minimized = self.game_window_controller.is_minimized()
 
         if minimized is True:
-            self.logger.info("PoE is already minimized at startup -> minimizing Overlay.")
-            self.overlay.showMinimized()
+            self.logger.info("PoE is already minimized at startup -> hiding Overlay to system tray.")
+            self.overlay.hide()
         elif minimized is False:
-            self.logger.info("PoE is not minimized at startup -> keeping Overlay normal.")
+            self.logger.info("PoE is not minimized at startup -> showing Overlay.")
+            self.overlay.show()
         else:
-            self.logger.info("PoE window not found at startup -> keeping Overlay normal.")
+            self.logger.info("PoE window not found at startup -> showing Overlay.")
+            self.overlay.show()
 
     # =======================================================
     # Outgoing Overlay -> TranslationManager
     # =======================================================
 
-    def on_outgoing_message(
-        self,
-        text: str,
-    ):
+    def on_outgoing_message(self, text: str):
         """
         Получает сообщение из поля ввода Overlay.
 
@@ -399,10 +436,7 @@ class ExilingoApp:
     # Translation Pipeline
     # =======================================================
 
-    def on_message_ready(
-        self,
-        context: MessageContext,
-    ):
+    def on_message_ready(self, context: MessageContext):
         """
         Incoming:
             сообщение отображается в Overlay.
@@ -424,9 +458,7 @@ class ExilingoApp:
             context.direction,
         )
 
-        is_outgoing = context.direction is not None and str(
-            context.direction
-        ).strip().lower() in {
+        is_outgoing = context.direction is not None and str(context.direction).strip().lower() in {
             "outgoing",
             "out",
             "send",
@@ -434,10 +466,6 @@ class ExilingoApp:
             "to",
             "кому",
         }
-
-        # ---------------------------------------------------
-        # Outgoing
-        # ---------------------------------------------------
 
         if is_outgoing:
             prepared_text = context.display_text or context.original_text
@@ -459,12 +487,7 @@ class ExilingoApp:
             else:
                 self.logger.info("OUTGOING OK: message passed to GameChatSender.")
 
-            # Никогда не рисуем outgoing напрямую.
             return
-
-        # ---------------------------------------------------
-        # Incoming
-        # ---------------------------------------------------
 
         sender = context.sender
 
@@ -486,11 +509,7 @@ class ExilingoApp:
 
     # -------------------------------------------------------
 
-    def on_translation_failed(
-        self,
-        context: MessageContext,
-        error: str,
-    ):
+    def on_translation_failed(self, context: MessageContext, error: str):
         """Обрабатывает ситуацию, когда все провайдеры перевода завершились ошибкой."""
 
         self.logger.error(
@@ -500,9 +519,7 @@ class ExilingoApp:
             context.direction,
         )
 
-        is_outgoing = context.direction is not None and str(
-            context.direction
-        ).strip().lower() in {
+        is_outgoing = context.direction is not None and str(context.direction).strip().lower() in {
             "outgoing",
             "out",
             "send",
@@ -530,7 +547,6 @@ class ExilingoApp:
             else:
                 self.logger.info("OUTGOING FALLBACK OK.")
 
-            # Не рисуем outgoing напрямую.
             return
 
         sender = context.sender
@@ -547,10 +563,7 @@ class ExilingoApp:
 
     # =======================================================
 
-    def on_log_status(
-        self,
-        status: str,
-    ):
+    def on_log_status(self, status: str):
 
         self.logger.info(
             "LogReader: %s",
@@ -565,7 +578,6 @@ class ExilingoApp:
 
         self.logger.info("LogReader monitoring started.")
 
-        self.overlay.show()
         self._sync_overlay_with_game_window()
 
         self.overlay.add_message(
@@ -594,7 +606,6 @@ class ExilingoApp:
 
 
 if __name__ == "__main__":
-    # Логирование и снимок настроек создаются до запуска основного приложения.
     logger = setup_logging()
 
     try:
