@@ -134,7 +134,7 @@ class ExilingoApp:
         # System tray
         # ---------------------------------------------------
 
-        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon = QSystemTrayIcon(self.app)
         self.tray_icon.setIcon(
             self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         )
@@ -142,17 +142,17 @@ class ExilingoApp:
 
         tray_menu = QMenu()
 
-        show_action = QAction("Показать Exilingo", self)
+        show_action = QAction("Показать Exilingo", self.app)
         show_action.triggered.connect(self._show_overlay_from_tray)
         tray_menu.addAction(show_action)
 
-        settings_action = QAction("Настройки", self)
+        settings_action = QAction("Настройки", self.app)
         settings_action.triggered.connect(self.open_settings)
         tray_menu.addAction(settings_action)
 
         tray_menu.addSeparator()
 
-        quit_action = QAction("Выйти", self)
+        quit_action = QAction("Выйти", self.app)
         quit_action.triggered.connect(self.close_application)
         tray_menu.addAction(quit_action)
 
