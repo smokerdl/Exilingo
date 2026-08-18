@@ -7,6 +7,7 @@ hiddenimports += collect_submodules("providers")
 hiddenimports += collect_submodules("core")
 hiddenimports += collect_submodules("ui")
 hiddenimports += collect_submodules("deep_translator")
+hiddenimports += collect_submodules("google.genai")
 
 analysis = Analysis(
     ["main.py"],
