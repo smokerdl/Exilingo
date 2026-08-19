@@ -17,7 +17,7 @@ analysis = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["runtime_hooks/single_instance.py"],
     excludes=[],
     noarchive=False,
 )
@@ -34,6 +34,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
+    upx_exclude=[],
     console=False,
     disable_windowed_traceback=False,
 )
