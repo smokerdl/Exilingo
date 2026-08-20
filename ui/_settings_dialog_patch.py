@@ -29,11 +29,6 @@ from PyQt6.QtWidgets import (
 )
 
 
-# ============================================================
-# Existing settings-dialog mouse compatibility patch
-# ============================================================
-
-
 class _SettingsDialogMouseHandler(QObject):
     """Mouse interaction helper for the frameless settings dialog."""
 
@@ -185,11 +180,6 @@ def _install_mouse_handler(dialog: QDialog) -> None:
         widget.installEventFilter(handler)
 
 
-# ============================================================
-# Provider diagnostics
-# ============================================================
-
-
 @dataclass
 class _ProviderTestResult:
     provider_id: str
@@ -205,7 +195,7 @@ class _ProviderTestSignals(QObject):
 
 
 def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
-    """Создаёт провайдер строго из текущих значений UI и выполняет два запроса."""
+    """Создаёт провайдер из текущих значений UI и выполняет два тестовых запроса."""
     from providers.google_translate import GoogleTranslateTranslator
     from providers.gemini.translator import GeminiTranslator
     from providers.groq.translator import GroqTranslator
@@ -221,10 +211,7 @@ def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
         prompt = str(settings.get("system_prompt") or "").strip()
 
         if provider_id == "google":
-            translator = GoogleTranslateTranslator(
-                source_language=source,
-                target_language=target,
-            )
+            translator = GoogleTranslateTranslator(source_language=source, target_language=target)
         elif provider_id == "gemini":
             translator = GeminiTranslator(
                 api_key=str(settings.get("api_key") or "").strip(),
@@ -331,12 +318,11 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
     button = QPushButton("Проверить")
     status = QLabel("Не проверено")
     status.setWordWrap(True)
-
     row.addWidget(button)
     row.addWidget(status, 1)
     layout.addLayout(row)
 
-    test_state = {"thread": None, "signals": None}
+    state = {"thread": None, "signals": None}
     dialog.__dict__.setdefault("_provider_test_widgets", {})[provider_id] = (button, status)
 
     def on_click():
@@ -346,14 +332,14 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
 
         settings = _provider_test_settings(dialog, provider_id)
         signals = _ProviderTestSignals()
-        test_state["signals"] = signals
+        state["signals"] = signals
 
         def worker():
             result = _run_provider_test(provider_id, settings)
             signals.finished.emit(result)
 
         thread = threading.Thread(target=worker, daemon=True)
-        test_state["thread"] = thread
+        state["thread"] = thread
 
         def finished(result: _ProviderTestResult):
             button.setEnabled(True)
@@ -381,7 +367,7 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
 # ============================================================
 
 
-def _outgoing_route_file(dialog=None) -> Path:
+def _outgoing_route_file() -> Path:
     from core.config_manager import CONFIG_FILE
     return Path(CONFIG_FILE).with_name("outgoing_route.json")
 
@@ -401,16 +387,14 @@ def _load_outgoing_route() -> list[str]:
 
 
 def _save_outgoing_route(route: list[str]) -> None:
-    path = _outgoing_route_file()
     try:
-        with path.open("w", encoding="utf-8") as handle:
+        with _outgoing_route_file().open("w", encoding="utf-8") as handle:
             json.dump({"providers": route}, handle, ensure_ascii=False, indent=4)
     except Exception:
         pass
 
 
 def _install_outgoing_route(dialog) -> None:
-    """Добавляет отдельную очередь Outgoing, не меняя старый routing UI."""
     list_widget = dialog.routing_channel_list
 
     existing = {
@@ -425,6 +409,7 @@ def _install_outgoing_route(dialog) -> None:
 
     fallback = _load_outgoing_route()
     if not fallback:
+        from core.config_manager import config
         fallback = list(config.get("routing", "whisper", default=["google"]) or ["google"])
     dialog.routing_data["outgoing"] = list(fallback)
 
@@ -436,9 +421,7 @@ def _install_outgoing_route(dialog) -> None:
             channel = current.data(Qt.ItemDataRole.UserRole)
             if channel == "outgoing":
                 dialog.current_routing_channel = "outgoing"
-                dialog._display_routing_queue(
-                    dialog.routing_data.get("outgoing", ["google"])
-                )
+                dialog._display_routing_queue(dialog.routing_data.get("outgoing", ["google"]))
 
     dialog._routing_channel_changed = routing_channel_changed
     try:
@@ -451,14 +434,12 @@ def _install_outgoing_route(dialog) -> None:
 
     def save_all_settings():
         original_save()
-
         if dialog.current_routing_channel == "outgoing":
             dialog.routing_data["outgoing"] = dialog._get_current_routing_queue()
 
-        queue = list(dialog.routing_data.get("outgoing", ["google"]))
         queue = [
             provider_id
-            for provider_id in queue
+            for provider_id in dialog.routing_data.get("outgoing", ["google"])
             if dialog._provider_is_available(provider_id)
         ]
 
@@ -480,6 +461,7 @@ def _install_outgoing_route(dialog) -> None:
 # ============================================================
 
 from .settings_dialog import SettingsDialog
+from core.config_manager import config
 from core.translation_manager import TranslationManager
 from core.translation_router import TranslationRouter
 from ui.chat_overlay import ChatOverlay
@@ -491,20 +473,15 @@ _original_settings_dialog_init = SettingsDialog.__init__
 def _patched_settings_dialog_init(self, *args, **kwargs):
     _original_settings_dialog_init(self, *args, **kwargs)
     _install_mouse_handler(self)
-
     for provider_id, page in self.provider_pages.items():
         _install_provider_test_button(self, provider_id, page)
-
     _install_outgoing_route(self)
 
 
 SettingsDialog.__init__ = _patched_settings_dialog_init
 
 
-# ------------------------------------------------------------
 # TranslationRouter: outgoing uses its own route.
-# ------------------------------------------------------------
-
 _original_router_resolve_channel = TranslationRouter._resolve_channel
 
 
@@ -516,6 +493,8 @@ def _patched_router_resolve_channel(self, context, direction):
 
 TranslationRouter._resolve_channel = _patched_router_resolve_channel
 
+
+# Config route: outgoing reads its persistent dedicated route.
 _original_config_route = config.route
 
 
@@ -524,24 +503,17 @@ def _patched_config_route(channel: str):
         route = _load_outgoing_route()
         if route:
             known = set(config.data.get("providers", {}).keys())
-            result = []
-            for provider_id in route:
-                if provider_id in known and provider_id not in result:
-                    result.append(provider_id)
+            result = [provider_id for provider_id in route if provider_id in known]
             if result:
-                return result
+                return list(dict.fromkeys(result))
         return _original_config_route("whisper")
     return _original_config_route(channel)
 
 
-from core.config_manager import config
 config.route = _patched_config_route
 
 
-# ------------------------------------------------------------
 # Outgoing echo tracking for UI highlighting.
-# ------------------------------------------------------------
-
 class _OutgoingEchoTracker:
     TTL_SECONDS = 5.0
 
@@ -554,15 +526,12 @@ class _OutgoingEchoTracker:
         value = str(text or "").strip()
         if not value:
             return ""
-
         if channel == "whisper" and value.startswith("@"):
             value = value[1:].lstrip()
             parts = value.split(None, 1)
             return parts[1].strip() if len(parts) == 2 else ""
-
         if value and value[0] in {"#", "%", "$", "&"}:
             value = value[1:].lstrip()
-
         return value
 
     def remember(self, channel: str, text: str):
@@ -593,7 +562,6 @@ class _OutgoingEchoTracker:
 
 
 _OUTGOING_ECHO_TRACKER = _OutgoingEchoTracker()
-
 _original_manager_process_context = TranslationManager._process_context
 _original_manager_enqueue = TranslationManager.enqueue
 
@@ -618,16 +586,15 @@ def _patched_manager_process_context(self, context):
 
 
 def _patched_manager_enqueue(self, context):
-    if context.direction is None:
-        if _OUTGOING_ECHO_TRACKER.consume(context.channel, context.original_text):
-            context.metadata["outgoing_echo"] = True
-            context.metadata["echo_sender"] = "You"
-            context.source.sender = "You"
-            self.logger.debug(
-                "outgoing echo matched: channel=%r text=%r",
-                context.channel,
-                context.original_text,
-            )
+    if context.direction is None and _OUTGOING_ECHO_TRACKER.consume(context.channel, context.original_text):
+        context.metadata["outgoing_echo"] = True
+        context.metadata["echo_sender"] = "You"
+        context.source.sender = "You"
+        self.logger.debug(
+            "outgoing echo matched: channel=%r text=%r",
+            context.channel,
+            context.original_text,
+        )
     return _original_manager_enqueue(self, context)
 
 
@@ -635,24 +602,14 @@ TranslationManager._process_context = _patched_manager_process_context
 TranslationManager.enqueue = _patched_manager_enqueue
 
 
-# ------------------------------------------------------------
 # ChatOverlay: cyan for translated outgoing echoes.
-# ------------------------------------------------------------
-
 _original_overlay_add_message = ChatOverlay.add_message
 
 
-def _patched_overlay_add_message(
-    self,
-    channel_prefix: str,
-    sender: str,
-    text: str,
-    is_translated: bool = True,
-):
+def _patched_overlay_add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
     if sender == "You" and is_translated:
         from ui.chat_overlay import CHAT_NAME_COLORS
         from PyQt6.QtCore import QTimer
-
         name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
         html = (
             '<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;">'
@@ -664,13 +621,7 @@ def _patched_overlay_add_message(
         QTimer.singleShot(0, self._scroll_chat_to_bottom)
         return
 
-    return _original_overlay_add_message(
-        self,
-        channel_prefix,
-        sender,
-        text,
-        is_translated,
-    )
+    return _original_overlay_add_message(self, channel_prefix, sender, text, is_translated)
 
 
 ChatOverlay.add_message = _patched_overlay_add_message
