@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
 
 from PyQt6.QtCore import QObject, QEvent, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -14,17 +15,17 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
-    QAbstractSpinBox,
+    QLabel,
     QLineEdit,
     QPlainTextEdit,
     QListWidget,
+    QListWidgetItem,
     QScrollBar,
     QTabBar,
+    QPushButton,
     QStyle,
     QStyleOptionSpinBox,
     QWidget,
-    QLabel,
-    QPushButton,
 )
 
 
@@ -203,7 +204,6 @@ class _ProviderTestSignals(QObject):
     finished = pyqtSignal(object)
 
 
-
 def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
     """Создаёт провайдер строго из текущих значений UI и выполняет два запроса."""
     from providers.google_translate import GoogleTranslateTranslator
@@ -221,7 +221,10 @@ def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
         prompt = str(settings.get("system_prompt") or "").strip()
 
         if provider_id == "google":
-            translator = GoogleTranslateTranslator(source_language=source, target_language=target)
+            translator = GoogleTranslateTranslator(
+                source_language=source,
+                target_language=target,
+            )
         elif provider_id == "gemini":
             translator = GeminiTranslator(
                 api_key=str(settings.get("api_key") or "").strip(),
@@ -257,13 +260,13 @@ def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
         else:
             raise RuntimeError(f"Unknown provider: {provider_id}")
 
-        en_result = translator.translate(
+        first_result = translator.translate(
             "Hello, how are you?",
             source_language=source,
             target_language=target,
         )
 
-        ru_result = translator.translate(
+        second_result = translator.translate(
             "Привет, как дела?",
             source_language=target,
             target_language=source,
@@ -275,8 +278,8 @@ def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
             success=True,
             elapsed_ms=elapsed_ms,
             message="Проверка завершена успешно.",
-            en_result=str(en_result or ""),
-            ru_result=str(ru_result or ""),
+            en_result=str(first_result or ""),
+            ru_result=str(second_result or ""),
         )
 
     except Exception as exc:
@@ -290,28 +293,31 @@ def _run_provider_test(provider_id: str, settings: dict) -> _ProviderTestResult:
 
 
 def _provider_test_settings(dialog, provider_id: str) -> dict:
-    def text(name: str, default: str = "") -> str:
+    def text_widget(name: str, default: str = "") -> str:
         widget = getattr(dialog, name, None)
-        if widget is None:
+        if widget is None or not hasattr(widget, "text"):
             return default
-        if hasattr(widget, "text"):
-            return str(widget.text()).strip()
-        return default
+        return str(widget.text()).strip()
+
+    if provider_id == "google":
+        return {
+            "source_language": text_widget("google_source", "en"),
+            "target_language": text_widget("google_target", "ru"),
+            "model": "",
+            "system_prompt": "",
+        }
 
     result = {
-        "source_language": text(f"{provider_id}_source_language", "en"),
-        "target_language": text(f"{provider_id}_target_language", "ru"),
-        "model": text(f"{provider_id}_model"),
+        "source_language": text_widget(f"{provider_id}_source_language", "en"),
+        "target_language": text_widget(f"{provider_id}_target_language", "ru"),
+        "model": text_widget(f"{provider_id}_model"),
         "system_prompt": getattr(dialog, f"{provider_id}_system_prompt").toPlainText().strip(),
     }
 
-    if provider_id == "google":
-        result["source_language"] = text("google_source", "en")
-        result["target_language"] = text("google_target", "ru")
-    elif provider_id == "ollama":
-        result["host"] = text("ollama_host", "http://127.0.0.1:11434")
+    if provider_id == "ollama":
+        result["host"] = text_widget("ollama_host", "http://127.0.0.1:11434")
     else:
-        result["api_key"] = text(f"{provider_id}_api_key")
+        result["api_key"] = text_widget(f"{provider_id}_api_key")
 
     return result
 
@@ -335,6 +341,7 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
 
     def on_click():
         button.setEnabled(False)
+        status.setStyleSheet("")
         status.setText("Проверка...")
 
         settings = _provider_test_settings(dialog, provider_id)
@@ -353,8 +360,8 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
             if result.success:
                 status.setText(
                     f"✓ Работает — {result.elapsed_ms:.0f} мс\n"
-                    f"EN→target: {result.en_result}\n"
-                    f"target→EN: {result.ru_result}"
+                    f"EN → RU: {result.en_result}\n"
+                    f"RU → EN: {result.ru_result}"
                 )
                 status.setStyleSheet("color: #66CCFF;")
             else:
@@ -370,12 +377,40 @@ def _install_provider_test_button(dialog, provider_id: str, page: QWidget) -> No
 
 
 # ============================================================
-# Outgoing routing
+# Persistent Outgoing route
 # ============================================================
 
 
+def _outgoing_route_file(dialog=None) -> Path:
+    from core.config_manager import CONFIG_FILE
+    return Path(CONFIG_FILE).with_name("outgoing_route.json")
+
+
+def _load_outgoing_route() -> list[str]:
+    path = _outgoing_route_file()
+    try:
+        if path.exists():
+            with path.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            route = data.get("providers") if isinstance(data, dict) else None
+            if isinstance(route, list):
+                return [str(item).strip().lower() for item in route if str(item).strip()]
+    except Exception:
+        pass
+    return []
+
+
+def _save_outgoing_route(route: list[str]) -> None:
+    path = _outgoing_route_file()
+    try:
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump({"providers": route}, handle, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+
 def _install_outgoing_route(dialog) -> None:
-    """Добавляет отдельную очередь Outgoing, не меняя старый UI-механизм."""
+    """Добавляет отдельную очередь Outgoing, не меняя старый routing UI."""
     list_widget = dialog.routing_channel_list
 
     existing = {
@@ -388,10 +423,10 @@ def _install_outgoing_route(dialog) -> None:
         item.setData(Qt.ItemDataRole.UserRole, "outgoing")
         list_widget.addItem(item)
 
-    fallback = list(config.get("routing", "whisper", default=["google"]) or ["google"])
-    dialog.routing_data["outgoing"] = list(
-        config.get("routing", "outgoing", default=fallback) or fallback
-    )
+    fallback = _load_outgoing_route()
+    if not fallback:
+        fallback = list(config.get("routing", "whisper", default=["google"]) or ["google"])
+    dialog.routing_data["outgoing"] = list(fallback)
 
     original_channel_changed = dialog._routing_channel_changed
 
@@ -406,7 +441,10 @@ def _install_outgoing_route(dialog) -> None:
                 )
 
     dialog._routing_channel_changed = routing_channel_changed
-    list_widget.currentItemChanged.disconnect()
+    try:
+        list_widget.currentItemChanged.disconnect()
+    except TypeError:
+        pass
     list_widget.currentItemChanged.connect(dialog._routing_channel_changed)
 
     original_save = dialog._save_all_settings
@@ -432,7 +470,7 @@ def _install_outgoing_route(dialog) -> None:
         if not unique and dialog.google_enabled.isChecked():
             unique = ["google"]
 
-        config.set("routing", "outgoing", value=unique)
+        _save_outgoing_route(unique)
 
     dialog._save_all_settings = save_all_settings
 
@@ -441,18 +479,11 @@ def _install_outgoing_route(dialog) -> None:
 # Runtime patches
 # ============================================================
 
-
-# Import only after helper definitions. ui.__init__ imports this module before
-# main.py imports SettingsDialog, so the class can safely be wrapped here.
 from .settings_dialog import SettingsDialog
-from core.translation_router import TranslationRouter
 from core.translation_manager import TranslationManager
+from core.translation_router import TranslationRouter
 from ui.chat_overlay import ChatOverlay
 
-
-# ------------------------------------------------------------
-# SettingsDialog
-# ------------------------------------------------------------
 
 _original_settings_dialog_init = SettingsDialog.__init__
 
@@ -471,7 +502,7 @@ SettingsDialog.__init__ = _patched_settings_dialog_init
 
 
 # ------------------------------------------------------------
-# TranslationRouter: outgoing has its own route now.
+# TranslationRouter: outgoing uses its own route.
 # ------------------------------------------------------------
 
 _original_router_resolve_channel = TranslationRouter._resolve_channel
@@ -484,6 +515,27 @@ def _patched_router_resolve_channel(self, context, direction):
 
 
 TranslationRouter._resolve_channel = _patched_router_resolve_channel
+
+_original_config_route = config.route
+
+
+def _patched_config_route(channel: str):
+    if channel == "outgoing":
+        route = _load_outgoing_route()
+        if route:
+            known = set(config.data.get("providers", {}).keys())
+            result = []
+            for provider_id in route:
+                if provider_id in known and provider_id not in result:
+                    result.append(provider_id)
+            if result:
+                return result
+        return _original_config_route("whisper")
+    return _original_config_route(channel)
+
+
+from core.config_manager import config
+config.route = _patched_config_route
 
 
 # ------------------------------------------------------------
@@ -510,6 +562,7 @@ class _OutgoingEchoTracker:
 
         if value and value[0] in {"#", "%", "$", "&"}:
             value = value[1:].lstrip()
+
         return value
 
     def remember(self, channel: str, text: str):
@@ -597,14 +650,10 @@ def _patched_overlay_add_message(
     is_translated: bool = True,
 ):
     if sender == "You" and is_translated:
-        name_color = getattr(
-            __import__("ui.chat_overlay", fromlist=["CHAT_NAME_COLORS"]),
-            "CHAT_NAME_COLORS",
-            {},
-        ).get(channel_prefix, "#E0E0E0")
-
+        from ui.chat_overlay import CHAT_NAME_COLORS
         from PyQt6.QtCore import QTimer
 
+        name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
         html = (
             '<div style="margin-bottom:4px; text-shadow:1px 1px 2px black;">'
             f'<span style="color:{name_color}; font-weight:bold;">{channel_prefix}{sender}: </span>'
