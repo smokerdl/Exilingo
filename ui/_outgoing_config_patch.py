@@ -79,6 +79,12 @@ def _migrate_outgoing_route() -> None:
 
     outgoing = raw_routing.get("outgoing")
 
+    # On the first run after this fix, prefer the current Whisper route when
+    # config.json does not yet contain a canonical Outgoing route. This avoids
+    # resurrecting a stale Gemini -> Google ordering from the old mirror file.
+    if not isinstance(outgoing, list) or not outgoing:
+        outgoing = raw_routing.get("whisper")
+
     if not isinstance(outgoing, list) or not outgoing:
         legacy_path = config.filename.with_name("outgoing_route.json")
         legacy = _read_json(legacy_path)
@@ -86,7 +92,7 @@ def _migrate_outgoing_route() -> None:
             outgoing = legacy.get("providers")
 
     if not isinstance(outgoing, list) or not outgoing:
-        outgoing = list(routing.get("whisper", ["google"]) or ["google"])
+        outgoing = ["google"]
 
     outgoing = config._normalize_route(outgoing)
     routing["outgoing"] = outgoing
