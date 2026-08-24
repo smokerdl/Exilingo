@@ -25,18 +25,19 @@ Write-Host "`n[4/5] Running PyInstaller..." -ForegroundColor Yellow
 python -m PyInstaller --clean --noconfirm Exilingo.spec
 
 $bundleRoot = Join-Path $root "dist\Exilingo"
-$internalRoot = Join-Path $bundleRoot "_internal"
 
 if (-not (Test-Path (Join-Path $bundleRoot "Exilingo.exe"))) {
     throw "PyInstaller did not produce dist\Exilingo\Exilingo.exe"
 }
 
 Write-Host "`n[5/5] Installing sanitized release config..." -ForegroundColor Yellow
-if (Test-Path $internalRoot) {
-    Copy-Item "config.release.json" (Join-Path $internalRoot "config.json") -Force
-}
-else {
-    Copy-Item "config.release.json" (Join-Path $bundleRoot "config.json") -Force
+Copy-Item "config.release.json" (Join-Path $bundleRoot "config.json") -Force
+
+# Configuration is user data and must live beside Exilingo.exe, not inside
+# PyInstaller's _internal directory.
+$internalConfig = Join-Path $bundleRoot "_internal\config.json"
+if (Test-Path $internalConfig) {
+    Remove-Item $internalConfig -Force
 }
 
 $zipPath = Join-Path $root "dist\Exilingo-test.zip"
