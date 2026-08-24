@@ -1,8 +1,4 @@
-from __future__ import annotations
-
 import sys
-import os
-import json
 import ctypes
 
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent, QTimer
@@ -11,10 +7,11 @@ from PyQt6.QtWidgets import (
     QLabel, QFrame, QApplication, QSizeGrip, QComboBox,
 )
 
+from core.config_manager import config
+
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED = 0x00080000
-CONFIG_FILE = "config.json"
 
 CHAT_CHANNELS = [
     ("local", "Local - Область", ""),
@@ -119,49 +116,30 @@ class ChatOverlay(QWidget):
         self.frame_layout.addWidget(self.input_widget)
 
     def load_config(self):
-        if not os.path.exists(CONFIG_FILE):
-            return
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            geo = data.get("overlay_geometry", {})
-            if not geo:
-                overlay = data.get("overlay", {})
-                if isinstance(overlay, dict):
-                    geo = overlay.get("geometry", {})
-            if all(key in geo for key in ("x", "y", "w", "h")):
-                self.setGeometry(int(geo["x"]), int(geo["y"]), int(geo["w"]), int(geo["h"]))
-            if "font_size" in data:
-                self.font_size = int(data["font_size"])
-            else:
-                overlay = data.get("overlay", {})
-                if isinstance(overlay, dict):
-                    self.font_size = int(overlay.get("font_size", 13))
-        except Exception as e:
-            print(f"[ConfigError] Не удалось загрузить конфиг: {e}")
+            geometry = config.overlay_geometry or {}
+            self.setGeometry(
+                int(geometry.get("x", 1)),
+                int(geometry.get("y", 11)),
+                int(geometry.get("w", 700)),
+                int(geometry.get("h", 309)),
+            )
+            self.font_size = int(config.font_size)
+        except (TypeError, ValueError, KeyError) as exc:
+            print(f"[ConfigError] Не удалось загрузить настройки Overlay: {exc}")
 
     def save_config(self):
-        config_data = {}
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    config_data = json.load(f)
-            except Exception:
-                config_data = {}
-        geometry = {"x": self.x(), "y": self.y(), "w": self.width(), "h": self.height()}
-        config_data["overlay_geometry"] = geometry
-        config_data["font_size"] = self.font_size
-        overlay = config_data.setdefault("overlay", {})
-        if not isinstance(overlay, dict):
-            overlay = {}
-            config_data["overlay"] = overlay
-        overlay["geometry"] = geometry
-        overlay["font_size"] = self.font_size
+        geometry = {
+            "x": self.x(),
+            "y": self.y(),
+            "w": self.width(),
+            "h": self.height(),
+        }
         try:
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(config_data, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"[ConfigError] Не удалось сохранить конфиг: {e}")
+            config.overlay_geometry = geometry
+            config.font_size = int(self.font_size)
+        except (TypeError, ValueError) as exc:
+            print(f"[ConfigError] Не удалось сохранить настройки Overlay: {exc}")
 
     def changeEvent(self, event: QEvent):
         if event.type() == QEvent.Type.ActivationChange:
@@ -196,7 +174,7 @@ class ChatOverlay(QWidget):
             )
 
     def set_font_size(self, size: int):
-        self.font_size = size
+        self.font_size = int(size)
         self.set_input_mode(self.is_input_mode)
         self.save_config()
 
@@ -239,38 +217,25 @@ class ChatOverlay(QWidget):
         return ""
 
     def _on_channel_changed(self, _index: int):
-        """При смене канала полностью сбрасывает старое содержимое и ставит префикс нового канала."""
         prefix = self._channel_prefix(self.channel_combo.currentData())
         self.input_field.setText(f"{prefix}" if prefix else "")
         self.input_field.setCursorPosition(len(self.input_field.text()))
 
     def _prepare_outgoing_message(self, text: str) -> str:
-        """Готовит финальный текст сообщения для выбранного игрового канала."""
         text = text.strip()
         if not text:
             return ""
-
         channel_id = self.channel_combo.currentData()
-
-        # Local не имеет специального символа. В нормальном сценарии поле
-        # уже очищено при выборе Local, но здесь дополнительно удаляем
-        # потенциально оставшийся префикс непосредственно перед отправкой.
         if channel_id == "local":
             if text[0] in CHAT_PREFIXES:
                 text = text[1:].lstrip()
             return text
-
-        # Для остальных каналов пользовательский/автоматический префикс
-        # сохраняется как есть; если его нет — добавляем префикс выбранного
-        # канала.
         if text[0] in CHAT_PREFIXES:
             return text
-
         prefix = self._channel_prefix(channel_id)
         return prefix + text if prefix else text
 
     def _extract_whisper_target(self, text: str) -> str:
-        """Возвращает никнейм из Whisper-строки, если он присутствует."""
         text = text.strip()
         if not text:
             return ""
@@ -281,7 +246,6 @@ class ChatOverlay(QWidget):
         return text.split(None, 1)[0]
 
     def _whisper_input_after_send(self, text: str) -> str:
-        """Оставляет никнейм с @ и обязательный пробел после отправки Whisper."""
         target = self._extract_whisper_target(text)
         if not target:
             return ""
@@ -309,7 +273,6 @@ class ChatOverlay(QWidget):
         self.set_input_mode(False)
 
     def _scroll_chat_to_bottom(self):
-        """Гарантированно возвращает историю чата к последнему сообщению."""
         scrollbar = self.chat_history.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
