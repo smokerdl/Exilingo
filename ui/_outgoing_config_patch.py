@@ -3,33 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core.config_manager import ConfigManager, config
-
-
-# ============================================================
-# Preserve routing.outgoing during ConfigManager normalization
-# ============================================================
-
-_original_normalize_config = ConfigManager._normalize_config
-
-
-def _patched_normalize_config(self):
-    routing = self.data.get("routing")
-    outgoing = None
-
-    if isinstance(routing, dict):
-        value = routing.get("outgoing")
-        if isinstance(value, list):
-            outgoing = list(value)
-        routing.pop("outgoing", None)
-
-    _original_normalize_config(self)
-
-    if outgoing is not None:
-        self.data.setdefault("routing", {})["outgoing"] = self._normalize_route(outgoing)
-
-
-ConfigManager._normalize_config = _patched_normalize_config
+from core.config_manager import config
 
 
 # ============================================================
@@ -57,55 +31,46 @@ def _write_legacy_mirror(route: list[str]) -> None:
 
 
 # ============================================================
-# Migrate the old external outgoing route into config.json
+# Migrate the old Outgoing route into config.json
 # ============================================================
 
 
 def _migrate_outgoing_route() -> None:
-    raw = _read_json(config.filename)
-    raw_routing = raw.get("routing", {}) if isinstance(raw, dict) else {}
-
-    if not isinstance(raw_routing, dict):
-        raw_routing = {}
-
     routing = config.data.setdefault("routing", {})
 
-    # Restore the real existing routes from the raw file before reloading.
-    # This repairs configs affected by the previous legacy normalization.
-    for channel in ("global", "local", "trade", "party", "guild", "whisper"):
-        route = raw_routing.get(channel)
-        if isinstance(route, list):
-            routing[channel] = list(route)
-
-    outgoing = raw_routing.get("outgoing")
-
-    # On the first run after this fix, prefer the current Whisper route when
-    # config.json does not yet contain a canonical Outgoing route. This avoids
-    # resurrecting a stale Gemini -> Google ordering from the old mirror file.
-    if not isinstance(outgoing, list) or not outgoing:
-        outgoing = raw_routing.get("whisper")
+    # New canonical key. It is intentionally not named exactly "outgoing",
+    # because old ConfigManager versions interpret that key as a legacy route
+    # alias for Whisper and remove it during normalization.
+    outgoing = routing.get("outgoing_route")
 
     if not isinstance(outgoing, list) or not outgoing:
-        legacy_path = config.filename.with_name("outgoing_route.json")
-        legacy = _read_json(legacy_path)
-        if isinstance(legacy, dict):
-            outgoing = legacy.get("providers")
+        raw = _read_json(config.filename)
+        raw_routing = raw.get("routing", {}) if isinstance(raw, dict) else {}
+        if not isinstance(raw_routing, dict):
+            raw_routing = {}
+
+        outgoing = raw_routing.get("outgoing_route")
+
+        # First migration: use the user's current Whisper queue. This gives
+        # the new Outgoing route the same priority order the user already sees.
+        if not isinstance(outgoing, list) or not outgoing:
+            outgoing = raw_routing.get("whisper")
+
+        # Very old builds stored only the separate mirror.
+        if not isinstance(outgoing, list) or not outgoing:
+            legacy = _read_json(config.filename.with_name("outgoing_route.json"))
+            if isinstance(legacy, dict):
+                outgoing = legacy.get("providers")
 
     if not isinstance(outgoing, list) or not outgoing:
         outgoing = ["google"]
 
     outgoing = config._normalize_route(outgoing)
-    routing["outgoing"] = outgoing
+    routing["outgoing_route"] = outgoing
 
-    # Reload once using the patched normalizer. The old normalizer used to
-    # migrate outgoing into Whisper and remove it; the patched one preserves it.
-    config.load()
-    config.data.setdefault("routing", {})["outgoing"] = outgoing
-
-    # Make config.json the canonical persistent source.
+    # This key is ignored by the old normalizer and therefore survives normal
+    # application restarts without special migration code in ConfigManager.
     config.save()
-
-    # Keep the old mirror temporarily so the existing settings UI can read it.
     _write_legacy_mirror(outgoing)
 
 
@@ -113,7 +78,7 @@ _migrate_outgoing_route()
 
 
 # ============================================================
-# ConfigManager route: outgoing comes from config.json
+# ConfigManager route: Outgoing uses its dedicated queue
 # ============================================================
 
 _original_config_route = config.route
@@ -121,7 +86,7 @@ _original_config_route = config.route
 
 def _patched_config_route(channel: str):
     if channel == "outgoing":
-        route = config.get("routing", "outgoing", default=[])
+        route = config.get("routing", "outgoing_route", default=[])
         if isinstance(route, list) and route:
             return config._normalize_route(route)
         return _original_config_route("whisper")
@@ -167,7 +132,7 @@ try:
 
         config.set(
             "routing",
-            "outgoing",
+            "outgoing_route",
             value=unique,
         )
 
@@ -176,6 +141,6 @@ try:
     SettingsDialog._save_all_settings = _patched_settings_save
 
 except Exception:
-    # SettingsDialog may not be importable yet during package bootstrap.
-    # The existing settings patch will still persist the legacy mirror.
+    # SettingsDialog is also wrapped by _settings_dialog_patch.py. The mirror
+    # keeps that UI compatible while the TranslationRouter uses config.json.
     pass
