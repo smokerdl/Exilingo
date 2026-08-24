@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -18,40 +19,22 @@ else:
 
 CONFIG_FILE = CONFIG_BASE_DIR / "config.json"
 LEGACY_CONFIG_FILE = PROJECT_ROOT / "config.json"
+LEGACY_SECRETS_FILE = PROJECT_ROOT / "secrets.txt"
 
 
 DEFAULT_CONFIG = {
-    "general": {
-        "log_path": "",
-    },
+    "general": {"log_path": ""},
     "overlay": {
-        "geometry": {
-            "x": 1,
-            "y": 11,
-            "w": 700,
-            "h": 309,
-        },
+        "geometry": {"x": 1, "y": 11, "w": 700, "h": 309},
         "font_size": 13,
     },
-    "game_chat": {
-        "input_point": {
-            "x": 0,
-            "y": 0,
-        },
-    },
+    "game_chat": {"input_point": {"x": 0, "y": 0}},
     "providers": {
-        "google": {
-            "enabled": True,
-            "source_language": "en",
-            "target_language": "ru",
-        },
+        "google": {"enabled": True, "source_language": "en", "target_language": "ru"},
         "gemini": {
             "enabled": False,
             "model": "gemini-2.5-flash",
-            "system_prompt": (
-                "You are a translator of the Path of Exile game chat. "
-                "Translate naturally without explanations."
-            ),
+            "system_prompt": "You are a translator of the Path of Exile game chat. Translate naturally without explanations.",
             "source_language": "en",
             "target_language": "ru",
         },
@@ -91,35 +74,42 @@ DEFAULT_CONFIG = {
 
 
 class ConfigManager:
-    """
-    Центральный менеджер конфигурации Exilingo.
-
-    В release-сборке пользовательский config.json хранится рядом с
-    Exilingo.exe, а не внутри _internal.
-    """
+    """Central configuration manager for Exilingo."""
 
     def __init__(self, filename: str | Path = CONFIG_FILE):
         self.filename = Path(filename)
         self.secrets = SecretsManager(self.filename.with_name("secrets.txt"))
         self.data = deepcopy(DEFAULT_CONFIG)
+        self._migrate_legacy_secrets()
         self.load()
+
+    def _migrate_legacy_secrets(self) -> None:
+        if not getattr(sys, "frozen", False):
+            return
+        if self.secrets.filename.exists():
+            return
+        if LEGACY_SECRETS_FILE == self.secrets.filename:
+            return
+        if not LEGACY_SECRETS_FILE.exists():
+            return
+        try:
+            self.secrets.filename.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(LEGACY_SECRETS_FILE, self.secrets.filename)
+        except Exception as exc:
+            print(f"[Config] Legacy secrets migration failed: {exc}")
 
     def _migrate_legacy_file(self) -> bool:
         if not getattr(sys, "frozen", False):
             return False
         if self.filename.exists():
             return False
-        if LEGACY_CONFIG_FILE == self.filename:
+        if LEGACY_CONFIG_FILE == self.filename or not LEGACY_CONFIG_FILE.exists():
             return False
-        if not LEGACY_CONFIG_FILE.exists():
-            return False
-
         try:
             with LEGACY_CONFIG_FILE.open("r", encoding="utf-8") as handle:
                 loaded = json.load(handle)
             if not isinstance(loaded, dict):
                 return False
-
             self.data = deepcopy(DEFAULT_CONFIG)
             self._merge_dict(self.data, loaded)
             self._migrate_legacy_config(loaded)
@@ -127,40 +117,33 @@ class ConfigManager:
             self.save()
             return True
         except Exception as exc:
-            print(f"[Config] Legacy migration failed: {exc}")
+            print(f"[Config] Legacy config migration failed: {exc}")
             return False
 
     def load(self):
         if self._migrate_legacy_file():
             return
-
         if not self.filename.exists():
             self.save()
             return
-
         try:
             with self.filename.open("r", encoding="utf-8") as f:
                 loaded = json.load(f)
-
             if not isinstance(loaded, dict):
                 print("[Config] Ошибка: config.json должен содержать JSON-объект.")
                 return
-
             providers = loaded.get("providers", {})
             if isinstance(providers, dict):
                 self.secrets.migrate_from_config(providers)
                 for provider in providers.values():
                     if isinstance(provider, dict):
                         provider.pop("api_key", None)
-
             self._merge_dict(self.data, loaded)
             before = deepcopy(self.data)
             self._migrate_legacy_config(loaded)
             self._normalize_config()
-
             if self.data != before:
                 self.save()
-
         except Exception as exc:
             print(f"[Config] Ошибка загрузки: {exc}")
 
@@ -187,17 +170,13 @@ class ConfigManager:
             provider_id = legacy_translation.get("provider")
             if provider_id and provider_id in self.data["providers"]:
                 for channel in ("global", "local", "trade", "party", "guild", "whisper"):
-                    route = self.data["routing"].get(channel, [])
-                    if route == ["google"]:
+                    if self.data["routing"].get(channel, []) == ["google"]:
                         self.data["routing"][channel] = [provider_id]
-
             if legacy_translation.get("source_language"):
                 google["source_language"] = str(legacy_translation["source_language"])
             if legacy_translation.get("target_language"):
                 google["target_language"] = str(legacy_translation["target_language"])
 
-        # Old releases stored outgoing separately. Migrate it only when the
-        # canonical outgoing route is still at its default value.
         if self.data["routing"].get("outgoing_route") == DEFAULT_CONFIG["routing"]["outgoing_route"]:
             legacy_outgoing = loaded.get("outgoing_route")
             if isinstance(legacy_outgoing, list) and legacy_outgoing:
@@ -259,8 +238,6 @@ class ConfigManager:
                 route = deepcopy(default_route)
             routing[channel] = self._normalize_route(route)
 
-        # Remove the obsolete external/inline legacy name if it somehow
-        # survived an older migration.
         if "outgoing" in routing:
             legacy = routing.pop("outgoing")
             if routing.get("outgoing_route") == DEFAULT_CONFIG["routing"]["outgoing_route"] and isinstance(legacy, list) and legacy:
