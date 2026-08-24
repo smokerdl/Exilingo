@@ -33,7 +33,7 @@ ConfigManager._normalize_config = _patched_normalize_config
 
 
 # ============================================================
-# Migrate the old external outgoing route into config.json
+# Helpers for the legacy mirror
 # ============================================================
 
 
@@ -45,6 +45,20 @@ def _read_json(path: Path):
             return json.load(handle)
     except Exception:
         return None
+
+
+def _write_legacy_mirror(route: list[str]) -> None:
+    path = config.filename.with_name("outgoing_route.json")
+    try:
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump({"providers": route}, handle, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+
+# ============================================================
+# Migrate the old external outgoing route into config.json
+# ============================================================
 
 
 def _migrate_outgoing_route() -> None:
@@ -84,6 +98,9 @@ def _migrate_outgoing_route() -> None:
 
     # Make config.json the canonical persistent source.
     config.save()
+
+    # Keep the old mirror temporarily so the existing settings UI can read it.
+    _write_legacy_mirror(outgoing)
 
 
 _migrate_outgoing_route()
@@ -148,9 +165,11 @@ try:
             value=unique,
         )
 
+        _write_legacy_mirror(unique)
+
     SettingsDialog._save_all_settings = _patched_settings_save
 
 except Exception:
     # SettingsDialog may not be importable yet during package bootstrap.
-    # The runtime settings patch will install its own save wrapper later.
+    # The existing settings patch will still persist the legacy mirror.
     pass
