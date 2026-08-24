@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core.config_manager import CONFIG_FILE, ConfigManager, config
-from core.settings_dialog import *  # noqa: F401,F403
+from core.config_manager import ConfigManager, config
 
 
 # ============================================================
@@ -55,11 +54,10 @@ def _migrate_outgoing_route() -> None:
     if not isinstance(raw_routing, dict):
         raw_routing = {}
 
-    # Restore the real routing values from the file before reloading.
-    # This also repairs a config that was previously corrupted by the
-    # legacy normalization code which treated outgoing as Whisper.
     routing = config.data.setdefault("routing", {})
 
+    # Restore the real existing routes from the raw file before reloading.
+    # This repairs configs affected by the previous legacy normalization.
     for channel in ("global", "local", "trade", "party", "guild", "whisper"):
         route = raw_routing.get(channel)
         if isinstance(route, list):
@@ -67,7 +65,7 @@ def _migrate_outgoing_route() -> None:
 
     outgoing = raw_routing.get("outgoing")
 
-    if not isinstance(outgoing, list):
+    if not isinstance(outgoing, list) or not outgoing:
         legacy_path = config.filename.with_name("outgoing_route.json")
         legacy = _read_json(legacy_path)
         if isinstance(legacy, dict):
@@ -76,16 +74,15 @@ def _migrate_outgoing_route() -> None:
     if not isinstance(outgoing, list) or not outgoing:
         outgoing = list(routing.get("whisper", ["google"]) or ["google"])
 
-    routing["outgoing"] = config._normalize_route(outgoing)
+    outgoing = config._normalize_route(outgoing)
+    routing["outgoing"] = outgoing
 
-    # Reload once using the patched normalizer so config.json becomes the
-    # canonical persistent source for outgoing routing.
+    # Reload once using the patched normalizer. The old normalizer used to
+    # migrate outgoing into Whisper and remove it; the patched one preserves it.
     config.load()
-    config.data.setdefault("routing", {})["outgoing"] = config._normalize_route(
-        outgoing
-    )
+    config.data.setdefault("routing", {})["outgoing"] = outgoing
 
-    # Ensure the migrated route is physically present in config.json.
+    # Make config.json the canonical persistent source.
     config.save()
 
 
