@@ -60,6 +60,7 @@
         "trade": ["google"],
         "party": ["google"],
         "guild": ["google"],
-        "whisper": ["google"]
+        "whisper": ["google"],
+        "outgoing_route": ["google"]
     }
 }
