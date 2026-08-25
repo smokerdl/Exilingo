@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class OverlayStateController:
-    """Separates user visibility intent from PoE visibility."""
+    """Separates user visibility intent from PoE visibility and mode intent."""
 
     def __init__(self, app):
         self.app = app
@@ -14,6 +14,7 @@ class OverlayStateController:
         self.user_visible = True
         self.game_visible: Optional[bool] = None
         self.desired_input_mode = bool(self.overlay.is_input_mode)
+        self._changing_mode = False
 
     def set_initial_game_state(self, foreground: Optional[bool]) -> None:
         self.game_visible = foreground
@@ -23,17 +24,34 @@ class OverlayStateController:
         self.game_visible = bool(focused)
         self.reconcile()
 
+    def on_overlay_mode_changed(self, enabled: bool) -> None:
+        if self._changing_mode:
+            return
+        self.desired_input_mode = bool(enabled)
+
+    def _set_mode(self, enabled: bool) -> None:
+        if self.overlay.is_input_mode == bool(enabled):
+            return
+        self._changing_mode = True
+        try:
+            self.overlay.set_input_mode(bool(enabled))
+        finally:
+            self._changing_mode = False
+
     def set_user_visible(self, visible: bool) -> None:
         visible = bool(visible)
         if visible == self.user_visible:
             self.reconcile()
             return
 
-        self.user_visible = visible
         if not visible:
             self.desired_input_mode = bool(self.overlay.is_input_mode)
+            self.user_visible = False
             if self.overlay.is_input_mode:
-                self.overlay.set_input_mode(False)
+                self._set_mode(False)
+        else:
+            self.user_visible = True
+
         self.reconcile()
 
     def toggle_user_visibility(self) -> None:
@@ -52,20 +70,20 @@ class OverlayStateController:
             self.overlay.hide()
             return
 
-        self.overlay.show()
+        if not self.overlay.isVisible():
+            self.overlay.show()
         self.overlay.raise_()
-
-        target_mode = bool(self.desired_input_mode)
-        if self.overlay.is_input_mode != target_mode:
-            self.overlay.set_input_mode(target_mode)
+        self._set_mode(self.desired_input_mode)
 
     def manual_show(self) -> None:
         self.user_visible = True
+        if self.game_visible is False:
+            self.overlay.show()
+            self.overlay.raise_()
+            self._set_mode(self.desired_input_mode)
+            return
         self.reconcile()
 
     def manual_hide(self) -> None:
-        self.user_visible = False
-        self.desired_input_mode = bool(self.overlay.is_input_mode)
-        if self.overlay.is_input_mode:
-            self.overlay.set_input_mode(False)
+        self.set_user_visible(False)
         self.overlay.hide()
