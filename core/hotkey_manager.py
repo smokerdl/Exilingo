@@ -21,11 +21,6 @@ class HotkeyManager:
         self._handles: Dict[str, object] = {}
         self.reload()
 
-    @staticmethod
-    def normalize_hotkey(value: object, default: str = "") -> str:
-        text = str(value or "").strip().lower()
-        return text or default
-
     def _read_config(self) -> Dict[str, str]:
         from .config_manager import config
 
@@ -33,12 +28,12 @@ class HotkeyManager:
         if not isinstance(stored, dict):
             stored = {}
 
-        result = dict(DEFAULT_HOTKEYS)
-        for name in DEFAULT_HOTKEYS:
-            result[name] = self.normalize_hotkey(
-                stored.get(name),
-                DEFAULT_HOTKEYS[name],
-            )
+        result = {}
+        for name, default in DEFAULT_HOTKEYS.items():
+            if name not in stored:
+                result[name] = default
+            else:
+                result[name] = str(stored.get(name) or "").strip().lower()
         return result
 
     def reload(self) -> None:
