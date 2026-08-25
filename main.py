@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtCore import QObject, pyqtSignal, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
@@ -187,7 +187,10 @@ class ExilingoApp:
 
     def _open_settings_dialog(self):
         self.logger.info("Settings window opened.")
+
         try:
+            # Global hotkeys should not fire while the user is assigning them.
+            self.hotkey_manager.stop()
             dialog = SettingsDialog(self.overlay)
             dialog.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
@@ -197,9 +200,11 @@ class ExilingoApp:
                 self._apply_runtime_settings()
                 self.logger.info("Settings saved.")
             else:
+                self.hotkey_manager.update_from_config()
                 self.logger.info("Settings cancelled.")
             return accepted
         except Exception:
+            self.hotkey_manager.update_from_config()
             self.logger.exception("Unhandled exception while opening settings.")
             return False
 
@@ -212,6 +217,17 @@ class ExilingoApp:
 
     def on_toggle_overlay_mode(self):
         target = not self.overlay_state.desired_input_mode
+
+        # When leaving interactive mode, determine whether PoE is actually
+        # foreground. A click from the Overlay to another application should
+        # not leave the click-through Overlay floating over that application.
+        if not target:
+            foreground = self.game_window_controller.is_foreground()
+            if foreground is False:
+                self.overlay_state.game_visible = False
+            elif foreground is True:
+                self.overlay_state.game_visible = True
+
         self.logger.info("Overlay mode hotkey -> desired interactive=%r", target)
         self.overlay_state.set_desired_input_mode(target)
 
