@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence, QKeySequenceEdit
-from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QGroupBox, QLabel, QVBoxLayout, QHBoxLayout, QMessageBox, QPushButton
+from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QGroupBox, QLabel, QMessageBox
 
 from core.config_manager import config
 from core.hotkey_manager import DEFAULT_HOTKEYS
@@ -29,17 +28,16 @@ def _ensure_hotkeys() -> dict:
     if not isinstance(stored, dict):
         stored = {}
 
+    result = {}
     changed = False
-    result = dict(DEFAULT_HOTKEYS)
     for name, default in DEFAULT_HOTKEYS.items():
-        value = str(stored.get(name) or default).strip().lower()
-        if not value:
-            value = default
-        result[name] = value
-        if stored.get(name) != value:
+        if name not in stored:
+            result[name] = default
             changed = True
+        else:
+            result[name] = str(stored.get(name) or "").strip().lower()
 
-    if changed or not stored:
+    if changed:
         config.set("hotkeys", value=result)
     return result
 
@@ -97,19 +95,20 @@ def _save_hotkeys(dialog: SettingsDialog) -> None:
     }
 
     seen = {}
+    labels = {
+        "send_message": "Отправить сообщение",
+        "toggle_mode": "Переключить режим Overlay",
+        "toggle_visibility": "Показать / скрыть Overlay",
+    }
     for action, hotkey in values.items():
         if not hotkey:
             continue
-        previous = seen.get(hotkey)
-        if previous is not None:
+        if hotkey in seen:
             raise ValueError(
-                f"Горячая клавиша {hotkey.upper()} уже назначена для действия {previous}."
+                f"Горячая клавиша {hotkey.upper()} уже назначена для действий "
+                f"'{seen[hotkey]}' и '{labels[action]}'."
             )
-        seen[hotkey] = {
-            "send_message": "Отправить сообщение",
-            "toggle_mode": "Переключить режим Overlay",
-            "toggle_visibility": "Показать / скрыть Overlay",
-        }[action]
+        seen[hotkey] = labels[action]
 
     config.set("hotkeys", value=values)
 
@@ -168,7 +167,6 @@ def _install_dialog_buttons(dialog: SettingsDialog) -> None:
             dialog.accept()
 
     button_box.clicked.connect(handle_click)
-
 
 
 def _patched_settings_init(self, *args, **kwargs):
