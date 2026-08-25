@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
@@ -166,6 +166,10 @@ class ExilingoApp:
         self.app.quit()
 
     def _apply_runtime_settings(self):
+        # Apply visual/runtime settings only. Hotkey reload is deliberately
+        # handled by _settings_runtime_patch exactly once after a successful
+        # settings save. Keeping the two operations separate avoids reloading
+        # the global keyboard hook multiple times for one settings action.
         geometry = config.overlay_geometry or {}
         try:
             self.overlay.setGeometry(
@@ -182,29 +186,25 @@ class ExilingoApp:
         except (TypeError, ValueError):
             self.logger.warning("Invalid overlay font size in config; keeping current font size.")
 
-        if hasattr(self, "hotkey_manager"):
-            self.hotkey_manager.update_from_config()
-
     def _open_settings_dialog(self):
         self.logger.info("Settings window opened.")
-
         try:
-            # Global hotkeys should not fire while the user is assigning them.
-            self.hotkey_manager.stop()
             dialog = SettingsDialog(self.overlay)
             dialog.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
             )
             accepted = dialog.exec() == dialog.DialogCode.Accepted
             if accepted:
+                # Settings were already applied by the dialog's OK handler.
+                # Re-apply visual settings here because the dialog can have
+                # changed geometry/font values while it was open. This call
+                # intentionally does NOT touch HotkeyManager.
                 self._apply_runtime_settings()
                 self.logger.info("Settings saved.")
             else:
-                self.hotkey_manager.update_from_config()
                 self.logger.info("Settings cancelled.")
             return accepted
         except Exception:
-            self.hotkey_manager.update_from_config()
             self.logger.exception("Unhandled exception while opening settings.")
             return False
 
@@ -217,17 +217,6 @@ class ExilingoApp:
 
     def on_toggle_overlay_mode(self):
         target = not self.overlay_state.desired_input_mode
-
-        # When leaving interactive mode, determine whether PoE is actually
-        # foreground. A click from the Overlay to another application should
-        # not leave the click-through Overlay floating over that application.
-        if not target:
-            foreground = self.game_window_controller.is_foreground()
-            if foreground is False:
-                self.overlay_state.game_visible = False
-            elif foreground is True:
-                self.overlay_state.game_visible = True
-
         self.logger.info("Overlay mode hotkey -> desired interactive=%r", target)
         self.overlay_state.set_desired_input_mode(target)
 
