@@ -2,8 +2,15 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PyQt6.QtGui import QKeySequence, QKeySequenceEdit
-from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QGroupBox, QLabel, QMessageBox
+from PyQt6.QtGui import QKeySequence
+from PyQt6.QtWidgets import (
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QKeySequenceEdit,
+    QMessageBox,
+)
 
 from core.config_manager import config
 from core.hotkey_manager import DEFAULT_HOTKEYS
