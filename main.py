@@ -39,6 +39,20 @@ OUTGOING_CHANNELS = {
 }
 
 
+class _HotkeySignals(QObject):
+    """Marshals global keyboard callbacks onto Qt's main thread.
+
+    The `keyboard` package invokes callbacks from its own listener thread.
+    Those callbacks must never manipulate Qt widgets directly. Emitting a
+    signal from that thread and connecting it to a QObject living in the main
+    thread makes Qt queue the actual UI operation safely.
+    """
+
+    send_message = pyqtSignal()
+    toggle_mode = pyqtSignal()
+    toggle_visibility = pyqtSignal()
+
+
 class ExilingoApp:
     def __init__(self):
         self.logger = get_logger("Main")
@@ -75,7 +89,6 @@ class ExilingoApp:
         quit_action = QAction("Выйти", self.app)
         quit_action.triggered.connect(self.close_application)
         tray_menu.addAction(quit_action)
-
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(self._on_tray_activated)
         self.tray_icon.show()
@@ -92,11 +105,20 @@ class ExilingoApp:
 
         self.game_chat_sender = GameChatSender()
 
+        # `keyboard` invokes its callbacks outside Qt's GUI thread. Never pass
+        # QWidget methods or other UI/state-changing callbacks directly to it.
+        # The signal object belongs to this main-thread application and Qt will
+        # queue these signal deliveries back to the GUI thread.
+        self.hotkey_signals = _HotkeySignals()
+        self.hotkey_signals.send_message.connect(self.overlay._on_send)
+        self.hotkey_signals.toggle_mode.connect(self.on_toggle_overlay_mode)
+        self.hotkey_signals.toggle_visibility.connect(self.on_toggle_overlay_visibility)
+
         self.hotkey_manager = HotkeyManager(
             {
-                "send_message": self.overlay._on_send,
-                "toggle_mode": self.on_toggle_overlay_mode,
-                "toggle_visibility": self.on_toggle_overlay_visibility,
+                "send_message": self.hotkey_signals.send_message.emit,
+                "toggle_mode": self.hotkey_signals.toggle_mode.emit,
+                "toggle_visibility": self.hotkey_signals.toggle_visibility.emit,
             }
         )
         set_runtime_callbacks(self._apply_runtime_settings, self.hotkey_manager.reload)
@@ -166,10 +188,6 @@ class ExilingoApp:
         self.app.quit()
 
     def _apply_runtime_settings(self):
-        # Apply visual/runtime settings only. Hotkey reload is deliberately
-        # handled by _settings_runtime_patch exactly once after a successful
-        # settings save. Keeping the two operations separate avoids reloading
-        # the global keyboard hook multiple times for one settings action.
         geometry = config.overlay_geometry or {}
         try:
             self.overlay.setGeometry(
@@ -195,10 +213,6 @@ class ExilingoApp:
             )
             accepted = dialog.exec() == dialog.DialogCode.Accepted
             if accepted:
-                # Settings were already applied by the dialog's OK handler.
-                # Re-apply visual settings here because the dialog can have
-                # changed geometry/font values while it was open. This call
-                # intentionally does NOT touch HotkeyManager.
                 self._apply_runtime_settings()
                 self.logger.info("Settings saved.")
             else:
@@ -226,8 +240,6 @@ class ExilingoApp:
             "Gained focus" if focused else "Lost focus",
         )
 
-        # Interactive mode intentionally ignores transient focus changes caused
-        # by clicking inside the Overlay. Click-through mode follows PoE focus.
         if self.overlay.is_input_mode:
             self.logger.debug("Interactive mode active -> ignoring PoE focus event.")
             return
@@ -367,10 +379,6 @@ class ExilingoApp:
 
     def on_log_status(self, status: str):
         self.logger.info("LogReader: %s", status)
-
-    # =======================================================
-    # Main loop
-    # =======================================================
 
     def run(self):
         self.log_reader.start()
