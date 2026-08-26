@@ -5,11 +5,11 @@
     "overlay": {
         "geometry": {
             "x": 0,
-            "y": 88,
-            "w": 704,
-            "h": 286
+            "y": 90,
+            "w": 703,
+            "h": 250
         },
-        "font_size": 15,
+        "font_size": 14,
         "outgoing_channel": "local"
     },
     "game_chat": {
@@ -79,11 +79,11 @@
     "log_path": "C:\\SteamLibrary\\steamapps\\common\\Path of Exile\\logs\\LatestClient.txt",
     "overlay_geometry": {
         "x": 0,
-        "y": 88,
-        "w": 704,
-        "h": 286
+        "y": 90,
+        "w": 703,
+        "h": 250
     },
-    "font_size": 15,
+    "font_size": 14,
     "translation": {
         "provider": "google",
         "source_language": "en",
