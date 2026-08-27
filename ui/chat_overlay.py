@@ -165,6 +165,7 @@ class ChatOverlay(QWidget):
             )
             self.activateWindow()
             self.input_field.setFocus()
+            self._log_activation_state("after Qt activateWindow")
         else:
             self.header_widget.hide()
             self.input_widget.hide()
@@ -172,6 +173,28 @@ class ChatOverlay(QWidget):
             self.main_frame.setStyleSheet(
                 f"""QFrame#MainFrame {{ background: transparent; border:none; }} QTextEdit {{ background: transparent; color:#E0E0E0; border:none; font-family: Segoe UI; font-size:{self.font_size}px; }}"""
             )
+
+    def _log_activation_state(self, stage: str):
+        """Temporary Windows/Qt diagnostics for overlay activation investigation."""
+        try:
+            user32 = ctypes.windll.user32
+            hwnd = int(self.winId())
+            foreground = int(user32.GetForegroundWindow())
+            active = int(user32.GetActiveWindow())
+            style = int(user32.GetWindowLongW(hwnd, GWL_EXSTYLE))
+            print(
+                "[OverlayActivation] "
+                f"{stage}: hwnd=0x{hwnd:X}, "
+                f"foreground=0x{foreground:X}, "
+                f"active=0x{active:X}, "
+                f"qt_active={self.isActiveWindow()}, "
+                f"visible={self.isVisible()}, "
+                f"transparent={bool(style & WS_EX_TRANSPARENT)}, "
+                f"layered={bool(style & WS_EX_LAYERED)}, "
+                f"input_mode={self.is_input_mode}"
+            )
+        except Exception as exc:
+            print(f"[OverlayActivation] {stage}: diagnostic failed: {exc}")
 
     def set_font_size(self, size: int):
         self.font_size = int(size)
