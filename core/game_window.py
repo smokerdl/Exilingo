@@ -11,8 +11,6 @@ kernel32 = ctypes.windll.kernel32
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
-# Explicit WinAPI prototypes are important on 64-bit Windows so HWND/HANDLE
-# values are not accidentally truncated to 32-bit integers by ctypes.
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
 user32.IsWindowVisible.restype = wintypes.BOOL
 
@@ -99,6 +97,11 @@ class GameWindowController:
 
         self._hwnd = found[0] if found else None
         return self._hwnd
+
+    def get_foreground_window(self) -> Optional[int]:
+        """Returns the HWND of the current Windows foreground window."""
+        hwnd = user32.GetForegroundWindow()
+        return int(hwnd) if hwnd else None
 
     def is_minimized(self) -> Optional[bool]:
         """Returns True/False for PoE minimized state, or None if not found."""
