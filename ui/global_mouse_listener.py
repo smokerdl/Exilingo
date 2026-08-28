@@ -40,8 +40,10 @@ class GlobalMouseListener(QObject):
     def _run_hook(self) -> None:
         self._thread_id = self._kernel32.GetCurrentThreadId()
 
+        # ctypes.wintypes does not provide LRESULT on Python 3.11.
+        # LRESULT is a pointer-sized signed integer on Windows.
         LowLevelMouseProc = ctypes.WINFUNCTYPE(
-            wintypes.LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+            ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
         )
 
         class MSLLHOOKSTRUCT(ctypes.Structure):
