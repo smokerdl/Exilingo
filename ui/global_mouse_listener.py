@@ -26,6 +26,31 @@ class GlobalMouseListener(QObject):
         self._callback = None
         self._stop_event = threading.Event()
 
+        # Explicit WinAPI signatures are important on 64-bit Python.
+        self._user32.SetWindowsHookExW.argtypes = [
+            ctypes.c_int,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+        ]
+        self._user32.SetWindowsHookExW.restype = ctypes.c_void_p
+        self._user32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
+        self._user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+        self._user32.CallNextHookEx.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+            wintypes.WPARAM,
+            wintypes.LPARAM,
+        ]
+        self._user32.CallNextHookEx.restype = wintypes.LRESULT if hasattr(wintypes, "LRESULT") else ctypes.c_ssize_t
+        self._user32.GetMessageW.argtypes = [
+            ctypes.POINTER(wintypes.MSG),
+            ctypes.c_void_p,
+            wintypes.UINT,
+            wintypes.UINT,
+        ]
+        self._user32.GetMessageW.restype = wintypes.BOOL
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
@@ -40,8 +65,6 @@ class GlobalMouseListener(QObject):
     def _run_hook(self) -> None:
         self._thread_id = self._kernel32.GetCurrentThreadId()
 
-        # ctypes.wintypes does not provide LRESULT on Python 3.11.
-        # LRESULT is a pointer-sized signed integer on Windows.
         LowLevelMouseProc = ctypes.WINFUNCTYPE(
             ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
         )
@@ -61,7 +84,20 @@ class GlobalMouseListener(QObject):
                 data = ctypes.cast(
                     l_param, ctypes.POINTER(MSLLHOOKSTRUCT)
                 ).contents
-                self.left_click.emit(int(data.pt.x), int(data.pt.y))
+                x = int(data.pt.x)
+                y = int(data.pt.y)
+
+                # Diagnostic output is intentionally produced directly from
+                # the hook thread. This tells us whether Windows actually
+                # reaches the low-level mouse callback, independently of Qt's
+                # cross-thread signal delivery.
+                print(
+                    f"[GlobalMouseHook] LMB x={x} y={y} "
+                    f"thread={threading.get_ident()}",
+                    flush=True,
+                )
+                self.left_click.emit(x, y)
+
             return self._user32.CallNextHookEx(
                 self._hook, n_code, w_param, l_param
             )
@@ -73,9 +109,20 @@ class GlobalMouseListener(QObject):
         )
 
         if not self._hook:
+            error = self._kernel32.GetLastError()
+            print(
+                f"[GlobalMouseHook] SetWindowsHookExW FAILED error={error}",
+                flush=True,
+            )
             self._callback = None
             self._thread_id = None
             return
+
+        print(
+            f"[GlobalMouseHook] installed hook={hex(int(self._hook))} "
+            f"thread={self._thread_id}",
+            flush=True,
+        )
 
         msg = wintypes.MSG()
         while not self._stop_event.is_set():
