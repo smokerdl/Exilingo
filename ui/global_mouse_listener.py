@@ -1,62 +1,100 @@
 from __future__ import annotations
 
 import ctypes
+import threading
+from ctypes import wintypes
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
 class GlobalMouseListener(QObject):
-    """Temporary global left-click diagnostics for overlay mode investigation.
-
-    The `mouse` package invokes callbacks from its own listener thread. The
-    callback therefore emits a Qt signal; the actual inspection happens on
-    the Qt GUI thread.
-    """
+    """Listen for global left mouse button presses on Windows."""
 
     left_click = pyqtSignal(int, int)
 
+    WH_MOUSE_LL = 14
+    WM_LBUTTONDOWN = 0x0201
+    WM_QUIT = 0x0012
+
     def __init__(self):
         super().__init__()
-        self._mouse = None
+        self._user32 = ctypes.windll.user32
+        self._kernel32 = ctypes.windll.kernel32
         self._hook = None
+        self._thread = None
+        self._thread_id = None
+        self._callback = None
+        self._stop_event = threading.Event()
 
     def start(self) -> None:
-        if self._hook is not None:
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(
+            target=self._run_hook,
+            name="ExilingoGlobalMouseHook",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _run_hook(self) -> None:
+        self._thread_id = self._kernel32.GetCurrentThreadId()
+
+        LowLevelMouseProc = ctypes.WINFUNCTYPE(
+            wintypes.LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+        )
+
+        class MSLLHOOKSTRUCT(ctypes.Structure):
+            _fields_ = [
+                ("pt", wintypes.POINT),
+                ("mouseData", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+            ]
+
+        @LowLevelMouseProc
+        def callback(n_code, w_param, l_param):
+            if n_code >= 0 and w_param == self.WM_LBUTTONDOWN:
+                data = ctypes.cast(
+                    l_param, ctypes.POINTER(MSLLHOOKSTRUCT)
+                ).contents
+                self.left_click.emit(int(data.pt.x), int(data.pt.y))
+            return self._user32.CallNextHookEx(
+                self._hook, n_code, w_param, l_param
+            )
+
+        self._callback = callback
+        module_handle = self._kernel32.GetModuleHandleW(None)
+        self._hook = self._user32.SetWindowsHookExW(
+            self.WH_MOUSE_LL, self._callback, module_handle, 0
+        )
+
+        if not self._hook:
+            self._callback = None
+            self._thread_id = None
             return
 
-        try:
-            import mouse
+        msg = wintypes.MSG()
+        while not self._stop_event.is_set():
+            result = self._user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+            if result <= 0:
+                break
 
-            self._mouse = mouse
-            self._hook = mouse.on_button(
-                self._on_button,
-                buttons=("left",),
-                types=("down",),
-            )
-            print("[MouseDiagnostics] Global mouse diagnostics started.")
-        except Exception as exc:
-            self._mouse = None
+        if self._hook:
+            self._user32.UnhookWindowsHookEx(self._hook)
             self._hook = None
-            raise RuntimeError(f"Failed to register global mouse listener: {exc}") from exc
-
-    def _on_button(self, _event) -> None:
-        try:
-            point = ctypes.wintypes.POINT()
-            ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
-            self.left_click.emit(int(point.x), int(point.y))
-        except Exception as exc:
-            print(f"[MouseDiagnostics] callback failed: {exc}")
+        self._callback = None
+        self._thread_id = None
 
     def stop(self) -> None:
-        mouse_module = self._mouse
-        hook = self._hook
+        self._stop_event.set()
+        if self._thread_id:
+            self._user32.PostThreadMessageW(self._thread_id, self.WM_QUIT, 0, 0)
+        thread = self._thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.0)
+        self._thread = None
+        self._thread_id = None
         self._hook = None
-        self._mouse = None
-
-        if mouse_module is None or hook is None:
-            return
-
-        try:
-            mouse_module.unhook(hook)
-        except Exception:
-            pass
+        self._callback = None
