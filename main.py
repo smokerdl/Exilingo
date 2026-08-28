@@ -114,13 +114,15 @@ class ExilingoApp:
         )
         set_runtime_callbacks(self._apply_runtime_settings, self.hotkey_manager.reload)
 
-        # Global mouse hook is deliberately used only for diagnostics at this
-        # stage. It reports every global LMB press without changing overlay
-        # state, so we can verify the event path before adding mode-switching.
+        # The global mouse hook is used for the interactive -> click-through
+        # transition. It reports LMB presses independently of which window is
+        # foreground, allowing us to detect a click outside the overlay even
+        # when the overlay itself has not become the Windows foreground window.
+        # The Qt signal crosses from the hook thread to the Qt main thread.
         self.mouse_listener = GlobalMouseListener()
         self.mouse_listener.left_click.connect(self._on_global_left_click)
         self.mouse_listener.start()
-        self.logger.info("Global mouse listener started for LMB diagnostics.")
+        self.logger.info("Global mouse listener started.")
 
         log_path = config.log_path
         if not log_path:
@@ -148,27 +150,34 @@ class ExilingoApp:
         self.log_reader.status_changed.connect(self.on_log_status)
 
     # =======================================================
-    # Diagnostics
+    # Global mouse / overlay mode
     # =======================================================
 
     def _on_global_left_click(self, x: int, y: int):
+        """Switch interactive overlay to click-through on an outside LMB.
+
+        This callback is delivered by GlobalMouseListener from its hook
+        thread, but the connected PyQt slot runs in ExilingoApp's Qt thread.
+        No Qt/window state is changed by the hook thread itself.
+        """
+        if not self.overlay.is_input_mode:
+            return
+
         geometry = self.overlay.geometry()
         inside = geometry.contains(x, y)
-        foreground = self.game_window_controller.get_foreground_window()
+        if inside:
+            return
 
         self.logger.info(
-            "[MouseClick] x=%d y=%d mode=%s overlay=(%d,%d,%d,%d) inside=%s hwnd=%s foreground=%s",
+            "Outside LMB -> interactive -> click-through: cursor=(%d,%d) overlay=(%d,%d,%d,%d)",
             x,
             y,
-            "interactive" if self.overlay.is_input_mode else "click-through",
             geometry.x(),
             geometry.y(),
             geometry.width(),
             geometry.height(),
-            inside,
-            hex(int(self.overlay.winId())),
-            hex(int(foreground)) if foreground else None,
         )
+        self.on_toggle_overlay_mode()
 
     # =======================================================
     # System tray / visibility
