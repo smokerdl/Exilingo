@@ -27,6 +27,7 @@ from ui.chat_overlay import ChatOverlay
 from ui.settings_dialog import SettingsDialog
 from ui._interaction_patch import set_mode_change_callback
 from ui._settings_runtime_patch import set_runtime_callbacks
+from ui.global_mouse_listener import GlobalMouseListener
 
 
 OUTGOING_CHANNELS = {
@@ -40,13 +41,7 @@ OUTGOING_CHANNELS = {
 
 
 class _HotkeySignals(QObject):
-    """Marshals global keyboard callbacks onto Qt's main thread.
-
-    The `keyboard` package invokes callbacks from its own listener thread.
-    Those callbacks must never manipulate Qt widgets directly. Emitting a
-    signal from that thread and connecting it to a QObject living in the main
-    thread makes Qt queue the actual UI operation safely.
-    """
+    """Marshals global keyboard callbacks onto Qt's main thread."""
 
     send_message = pyqtSignal()
     toggle_mode = pyqtSignal()
@@ -105,10 +100,6 @@ class ExilingoApp:
 
         self.game_chat_sender = GameChatSender()
 
-        # `keyboard` invokes its callbacks outside Qt's GUI thread. Never pass
-        # QWidget methods or other UI/state-changing callbacks directly to it.
-        # The signal object belongs to this main-thread application and Qt will
-        # queue these signal deliveries back to the GUI thread.
         self.hotkey_signals = _HotkeySignals()
         self.hotkey_signals.send_message.connect(self.overlay._on_send)
         self.hotkey_signals.toggle_mode.connect(self.on_toggle_overlay_mode)
@@ -122,6 +113,14 @@ class ExilingoApp:
             }
         )
         set_runtime_callbacks(self._apply_runtime_settings, self.hotkey_manager.reload)
+
+        # Global mouse hook is deliberately used only for diagnostics at this
+        # stage. It reports every global LMB press without changing overlay
+        # state, so we can verify the event path before adding mode-switching.
+        self.mouse_listener = GlobalMouseListener()
+        self.mouse_listener.left_click.connect(self._on_global_left_click)
+        self.mouse_listener.start()
+        self.logger.info("Global mouse listener started for LMB diagnostics.")
 
         log_path = config.log_path
         if not log_path:
@@ -147,6 +146,29 @@ class ExilingoApp:
         self.log_reader.new_chat_message.connect(self.on_new_chat_message)
         self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
         self.log_reader.status_changed.connect(self.on_log_status)
+
+    # =======================================================
+    # Diagnostics
+    # =======================================================
+
+    def _on_global_left_click(self, x: int, y: int):
+        geometry = self.overlay.geometry()
+        inside = geometry.contains(x, y)
+        foreground = self.game_window_controller.get_foreground_window()
+
+        self.logger.info(
+            "[MouseClick] x=%d y=%d mode=%s overlay=(%d,%d,%d,%d) inside=%s hwnd=%s foreground=%s",
+            x,
+            y,
+            "interactive" if self.overlay.is_input_mode else "click-through",
+            geometry.x(),
+            geometry.y(),
+            geometry.width(),
+            geometry.height(),
+            inside,
+            hex(int(self.overlay.winId())),
+            hex(int(foreground)) if foreground else None,
+        )
 
     # =======================================================
     # System tray / visibility
@@ -177,6 +199,10 @@ class ExilingoApp:
 
     def close_application(self):
         self.logger.info("Application shutdown requested.")
+        try:
+            self.mouse_listener.stop()
+        except Exception:
+            self.logger.exception("Error while stopping global mouse listener.")
         try:
             self.hotkey_manager.stop()
         except Exception:
@@ -397,6 +423,10 @@ class ExilingoApp:
         self.logger.info("Qt event loop finished with exit code %s.", ret)
         self.log_reader.stop()
         self.translation_manager.stop()
+        try:
+            self.mouse_listener.stop()
+        except Exception:
+            self.logger.exception("Error while stopping global mouse listener.")
         try:
             self.hotkey_manager.stop()
         except Exception:
