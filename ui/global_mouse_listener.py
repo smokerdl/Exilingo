@@ -18,47 +18,41 @@ class GlobalMouseListener(QObject):
 
     def __init__(self):
         super().__init__()
-        self._user32 = ctypes.windll.user32
-        self._kernel32 = ctypes.windll.kernel32
+        self._user32 = ctypes.WinDLL("user32", use_last_error=True)
+        self._kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self._hook = None
         self._thread = None
         self._thread_id = None
         self._callback = None
         self._stop_event = threading.Event()
 
-        # Explicit WinAPI signatures are important on 64-bit Python.
         self._user32.SetWindowsHookExW.argtypes = [
-            ctypes.c_int,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            wintypes.DWORD,
+            ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD
         ]
         self._user32.SetWindowsHookExW.restype = ctypes.c_void_p
         self._user32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
         self._user32.UnhookWindowsHookEx.restype = wintypes.BOOL
         self._user32.CallNextHookEx.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_int,
-            wintypes.WPARAM,
-            wintypes.LPARAM,
+            ctypes.c_void_p, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
         ]
-        self._user32.CallNextHookEx.restype = wintypes.LRESULT if hasattr(wintypes, "LRESULT") else ctypes.c_ssize_t
+        self._user32.CallNextHookEx.restype = ctypes.c_ssize_t
         self._user32.GetMessageW.argtypes = [
-            ctypes.POINTER(wintypes.MSG),
-            ctypes.c_void_p,
-            wintypes.UINT,
-            wintypes.UINT,
+            ctypes.POINTER(wintypes.MSG), ctypes.c_void_p, wintypes.UINT, wintypes.UINT
         ]
         self._user32.GetMessageW.restype = wintypes.BOOL
+        self._user32.PostThreadMessageW.argtypes = [
+            wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+        ]
+        self._user32.PostThreadMessageW.restype = wintypes.BOOL
+        self._kernel32.GetCurrentThreadId.argtypes = []
+        self._kernel32.GetCurrentThreadId.restype = wintypes.DWORD
 
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
         self._thread = threading.Thread(
-            target=self._run_hook,
-            name="ExilingoGlobalMouseHook",
-            daemon=True,
+            target=self._run_hook, name="ExilingoGlobalMouseHook", daemon=True
         )
         self._thread.start()
 
@@ -75,7 +69,7 @@ class GlobalMouseListener(QObject):
                 ("mouseData", wintypes.DWORD),
                 ("flags", wintypes.DWORD),
                 ("time", wintypes.DWORD),
-                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+                ("dwExtraInfo", ctypes.c_void_p),
             ]
 
         @LowLevelMouseProc
@@ -86,11 +80,6 @@ class GlobalMouseListener(QObject):
                 ).contents
                 x = int(data.pt.x)
                 y = int(data.pt.y)
-
-                # Diagnostic output is intentionally produced directly from
-                # the hook thread. This tells us whether Windows actually
-                # reaches the low-level mouse callback, independently of Qt's
-                # cross-thread signal delivery.
                 print(
                     f"[GlobalMouseHook] LMB x={x} y={y} "
                     f"thread={threading.get_ident()}",
@@ -102,14 +91,20 @@ class GlobalMouseListener(QObject):
                 self._hook, n_code, w_param, l_param
             )
 
+        # Keep the ctypes callback alive for the entire lifetime of the hook.
         self._callback = callback
-        module_handle = self._kernel32.GetModuleHandleW(None)
+
+        # WH_MOUSE_LL is a global hook (dwThreadId=0). The callback lives in
+        # this Python process, so pass NULL for hMod. The previous code passed
+        # a module handle obtained through an incompletely declared ctypes API;
+        # on 64-bit Windows that could produce ERROR_MOD_NOT_FOUND (126).
+        ctypes.set_last_error(0)
         self._hook = self._user32.SetWindowsHookExW(
-            self.WH_MOUSE_LL, self._callback, module_handle, 0
+            self.WH_MOUSE_LL, self._callback, None, 0
         )
 
         if not self._hook:
-            error = self._kernel32.GetLastError()
+            error = ctypes.get_last_error()
             print(
                 f"[GlobalMouseHook] SetWindowsHookExW FAILED error={error}",
                 flush=True,
