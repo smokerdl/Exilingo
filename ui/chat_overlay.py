@@ -299,6 +299,25 @@ class ChatOverlay(QWidget):
         scrollbar = self.chat_history.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
+    def interactive_popup_geometry(self):
+        """Return the channel selector popup's screen geometry when it is visible."""
+        try:
+            popup = self.channel_combo.view().window()
+            if popup is None or not popup.isVisible():
+                return None
+            return popup.frameGeometry()
+        except RuntimeError:
+            return None
+
+    def is_global_point_inside_interactive_area(self, x: int, y: int) -> bool:
+        """Check both the overlay and an open channel popup."""
+        point = self.mapFromGlobal(__import__("PyQt6.QtCore", fromlist=["QPoint"]).QPoint(x, y))
+        if self.rect().contains(point):
+            return True
+
+        popup_geometry = self.interactive_popup_geometry()
+        return popup_geometry is not None and popup_geometry.contains(x, y)
+
     def add_message(self, channel_prefix: str, sender: str, text: str, is_translated: bool = True):
         text_color = "#FFD700" if is_translated else "#A0A0A0"
         name_color = CHAT_NAME_COLORS.get(channel_prefix, "#E0E0E0")
