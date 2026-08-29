@@ -186,7 +186,7 @@ class TranslationManager(QObject):
             normalized,
         )
 
-        if self._should_skip_translation(detected_language, expected_source_language):
+        if self._should_skip_translation(detected_language, expected_source_language, normalized):
             translated = normalized
             context.translated_text = translated
             context.display_text = self._build_outgoing_display(
@@ -430,7 +430,14 @@ class TranslationManager(QObject):
         return ((0x0041 <= code <= 0x005A) or (0x0061 <= code <= 0x007A))
 
     def _should_skip_translation(self, detected_language: Optional[str],
-                                 expected_source_language: str) -> bool:
+                                 expected_source_language: str,
+                                 text: str) -> bool:
+        # Messages containing no Latin/Cyrillic letters cannot be translated
+        # by our configured language pipeline. Pass them through immediately
+        # instead of sending them to a provider and waiting for retries.
+        if not any(self._is_cyrillic(char) or self._is_latin(char) for char in text):
+            return True
+
         if detected_language is None:
             return False
         if expected_source_language == "en":
