@@ -156,26 +156,37 @@ class ExilingoApp:
     def _on_global_left_click(self, x: int, y: int):
         """Switch interactive overlay to click-through on an outside LMB.
 
-        This callback is delivered by GlobalMouseListener from its hook
-        thread, but the connected PyQt slot runs in ExilingoApp's Qt thread.
-        No Qt/window state is changed by the hook thread itself.
+        The interactive area consists of the overlay itself and any open
+        popup belonging to the channel selector. QComboBox creates its popup
+        as a separate top-level Qt window, so it can extend beyond the
+        overlay's normal geometry and must be checked separately.
         """
         if not self.overlay.is_input_mode:
             return
 
-        geometry = self.overlay.geometry()
-        inside = geometry.contains(x, y)
+        inside = self.overlay.is_global_point_inside_interactive_area(x, y)
         if inside:
             return
 
+        geometry = self.overlay.geometry()
+        popup_geometry = self.overlay.interactive_popup_geometry()
+        popup_text = "none"
+        if popup_geometry is not None:
+            popup_text = (
+                f"({popup_geometry.x()},{popup_geometry.y()},"
+                f"{popup_geometry.width()},{popup_geometry.height()})"
+            )
+
         self.logger.info(
-            "Outside LMB -> interactive -> click-through: cursor=(%d,%d) overlay=(%d,%d,%d,%d)",
+            "Outside LMB -> interactive -> click-through: cursor=(%d,%d) "
+            "overlay=(%d,%d,%d,%d) channel_popup=%s",
             x,
             y,
             geometry.x(),
             geometry.y(),
             geometry.width(),
             geometry.height(),
+            popup_text,
         )
         self.on_toggle_overlay_mode()
 
