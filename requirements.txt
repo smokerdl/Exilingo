@@ -4,6 +4,5 @@ requests>=2.31,<3
 beautifulsoup4>=4.12,<5
 deep-translator>=1.11,<2
 keyboard>=0.13.5,<1
-mouse>=0.7.1,<1
 google-genai>=2.14,<3
 pyinstaller>=6.10,<7
