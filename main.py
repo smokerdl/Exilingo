@@ -53,6 +53,7 @@ class ExilingoApp:
     def __init__(self):
         self.logger = get_logger("Main")
         self._startup_cancelled = False
+        self.log_reader = None
 
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
@@ -116,26 +117,19 @@ class ExilingoApp:
         )
         set_runtime_callbacks(self._apply_runtime_settings, self.hotkey_manager.reload)
 
-        # The Windows low-level mouse hook runs in its own thread. Forward the
-        # event into a dedicated QObject signal before touching any Qt UI.
         self.mouse_listener = GlobalMouseListener()
         self.mouse_listener.left_click.connect(self.input_signals.left_click.emit)
         self.input_signals.left_click.connect(self._on_global_left_click)
         self.mouse_listener.start()
         self.logger.info("Global mouse listener started.")
 
-        log_path = config.log_path
-        if not log_path:
+        if not config.log_path:
             self.logger.warning(
                 "Path of Exile log path is not configured. Opening settings for first-time setup."
             )
-            if not self._open_settings_dialog():
-                self.logger.info("Startup cancelled by user from first-run settings.")
-                self._startup_cancelled = True
-                self._stop_background_components()
-                return
-            log_path = config.log_path
+            self._open_settings_dialog()
 
+        log_path = config.log_path
         if not log_path:
             self.logger.info("Startup cancelled: Path of Exile log path is still not configured.")
             self._startup_cancelled = True
@@ -143,13 +137,7 @@ class ExilingoApp:
             return
 
         self.logger.info("Using Path of Exile log path: %s", log_path)
-        self.log_reader = LogReaderThread(
-            log_filepath=log_path,
-            read_from_end=True,
-        )
-        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
-        self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
-        self.log_reader.status_changed.connect(self.on_log_status)
+        self._ensure_log_reader(log_path)
 
     # =======================================================
     # Global mouse / overlay mode
@@ -207,6 +195,29 @@ class ExilingoApp:
     def on_toggle_overlay_visibility(self):
         self.logger.info("Overlay visibility hotkey pressed.")
         self.overlay_state.toggle_user_visibility()
+
+    # =======================================================
+    # Startup/runtime helpers
+    # =======================================================
+
+    def _ensure_log_reader(self, log_path: str):
+        """Create the LogReader once a valid path becomes available."""
+        if self.log_reader is not None:
+            if self.log_reader.log_filepath != log_path:
+                if self.log_reader.isRunning():
+                    self.log_reader.stop()
+                self.log_reader = None
+            else:
+                return
+
+        self.logger.info("Preparing LogReader for Path of Exile log path: %s", log_path)
+        self.log_reader = LogReaderThread(
+            log_filepath=log_path,
+            read_from_end=True,
+        )
+        self.log_reader.new_chat_message.connect(self.on_new_chat_message)
+        self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
+        self.log_reader.status_changed.connect(self.on_log_status)
 
     # =======================================================
     # Shutdown / settings
@@ -271,6 +282,12 @@ class ExilingoApp:
         except (TypeError, ValueError):
             self.logger.warning("Invalid overlay font size in config; keeping current font size.")
 
+        # First-run settings are a nested modal dialog inside ExilingoApp.__init__.
+        # When Apply is pressed, the dialog must be able to make a newly entered
+        # log path available immediately, without waiting for the dialog to close.
+        if config.log_path:
+            self._ensure_log_reader(config.log_path)
+
     def _open_settings_dialog(self):
         self.logger.info("Settings window opened.")
         try:
@@ -279,11 +296,12 @@ class ExilingoApp:
                 Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
             )
             accepted = dialog.exec() == dialog.DialogCode.Accepted
-            if accepted:
+            if config.log_path:
                 self._apply_runtime_settings()
+            if accepted:
                 self.logger.info("Settings saved.")
             else:
-                self.logger.info("Settings cancelled.")
+                self.logger.info("Settings closed without further changes.")
             return accepted
         except Exception:
             self.logger.exception("Unhandled exception while opening settings.")
@@ -452,8 +470,16 @@ class ExilingoApp:
             self.logger.info("Startup cancelled by user; exiting cleanly.")
             return
 
-        self.log_reader.start()
-        self.logger.info("LogReader monitoring started.")
+        if self.log_reader is None:
+            self.logger.error("Cannot start application: LogReader is not configured.")
+            self._startup_cancelled = True
+            self._stop_background_components()
+            return
+
+        if not self.log_reader.isRunning():
+            self.log_reader.start()
+            self.logger.info("LogReader monitoring started.")
+
         self._sync_overlay_with_game_window()
 
         self.overlay.add_message(
