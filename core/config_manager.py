@@ -25,8 +25,8 @@ LEGACY_SECRETS_FILE = PROJECT_ROOT / "secrets.txt"
 DEFAULT_CONFIG = {
     "general": {"log_path": ""},
     "overlay": {
-        "geometry": {"x": 1, "y": 11, "w": 700, "h": 309},
-        "font_size": 13,
+        "geometry": {"x": 0, "y": 90, "w": 703, "h": 250},
+        "font_size": 14,
     },
     "game_chat": {"input_point": {"x": 0, "y": 0}},
     "providers": {
@@ -309,7 +309,7 @@ class ConfigManager:
 
     @property
     def font_size(self) -> int:
-        return self.get("overlay", "font_size", default=13)
+        return self.get("overlay", "font_size", default=14)
 
     @font_size.setter
     def font_size(self, value: int):
