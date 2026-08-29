@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -26,14 +27,25 @@ class ProviderInfo:
     requires_api_key: bool
 
 
+@dataclass(slots=True)
+class ProviderHealth:
+    """Текущее состояние доступности провайдера."""
+
+    consecutive_failures: int = 0
+    cooldown_until: float = 0.0
+    last_error: str = ""
+
+
 class ProviderRegistry:
     """
     Единая точка регистрации всех переводчиков Exilingo.
 
     Registry отвечает за список поддерживаемых провайдеров, их текущее
-    состояние и создание экземпляров переводчиков. TranslationManager
-    и GUI не создают конкретные провайдеры напрямую.
+    состояние, создание и кэширование экземпляров переводчиков, а также
+    за краткосрочное состояние доступности провайдеров.
     """
+
+    PROVIDER_COOLDOWN_SECONDS = 30.0
 
     def __init__(self):
         self._providers = {
@@ -64,6 +76,7 @@ class ProviderRegistry:
             },
         }
         self._instances: dict[tuple[str, str, str, str], BaseTranslator] = {}
+        self._health: dict[str, ProviderHealth] = {}
 
     def _is_configured(self, provider_id: str) -> bool:
         provider = self._providers.get(provider_id)
@@ -78,6 +91,47 @@ class ProviderRegistry:
             and self._is_configured(provider_id)
             and self._is_enabled(provider_id)
         )
+
+    def is_in_cooldown(self, provider_id: str) -> bool:
+        health = self._health.get(provider_id)
+        if health is None:
+            return False
+        if health.cooldown_until <= time.monotonic():
+            health.cooldown_until = 0.0
+            return False
+        return True
+
+    def cooldown_remaining(self, provider_id: str) -> float:
+        health = self._health.get(provider_id)
+        if health is None:
+            return 0.0
+        return max(0.0, health.cooldown_until - time.monotonic())
+
+    def provider_health(self, provider_id: str) -> ProviderHealth:
+        health = self._health.get(provider_id)
+        if health is None:
+            return ProviderHealth()
+        return ProviderHealth(
+            consecutive_failures=health.consecutive_failures,
+            cooldown_until=health.cooldown_until,
+            last_error=health.last_error,
+        )
+
+    def record_success(self, provider_id: str) -> None:
+        self._health[provider_id] = ProviderHealth()
+
+    def record_failure(self, provider_id: str, error: str) -> None:
+        health = self._health.setdefault(provider_id, ProviderHealth())
+        health.consecutive_failures += 1
+        health.last_error = str(error)
+        health.cooldown_until = time.monotonic() + self.PROVIDER_COOLDOWN_SECONDS
+
+    def reset_health(self, provider_id: Optional[str] = None) -> None:
+        """Сбрасывает cooldown и статистику ошибок провайдера."""
+        if provider_id is None:
+            self._health.clear()
+        else:
+            self._health.pop(provider_id, None)
 
     def _settings_fingerprint(self, provider_id: str, source_language: str, target_language: str) -> str:
         provider = config.get_provider(provider_id)
@@ -100,24 +154,24 @@ class ProviderRegistry:
     def _create_gemini(self, source_language: Optional[str] = None, target_language: Optional[str] = None) -> BaseTranslator:
         provider = config.get("providers", "gemini") or {}
         api_key = config.provider_api_key("gemini")
-        model = str(provider.get("model", "gemini-3.5-flash-lite")).strip()
+        model = str(provider.get("model", "gemini-2.5-flash")).strip()
         system_prompt = str(provider.get("system_prompt", "")).strip()
         if source_language is None:
             source_language = provider.get("source_language", "en")
         if target_language is None:
             target_language = provider.get("target_language", "ru")
-        return GeminiTranslator(api_key=api_key, model=model or "gemini-3.5-flash-lite", system_prompt=system_prompt, source_language=str(source_language), target_language=str(target_language))
+        return GeminiTranslator(api_key=api_key, model=model or "gemini-2.5-flash", system_prompt=system_prompt, source_language=str(source_language), target_language=str(target_language))
 
     def _create_groq(self, source_language: Optional[str] = None, target_language: Optional[str] = None) -> BaseTranslator:
         provider = config.get("providers", "groq") or {}
         api_key = config.provider_api_key("groq")
-        model = str(provider.get("model", "openai/gpt-oss-20b")).strip()
+        model = str(provider.get("model", "")).strip()
         system_prompt = str(provider.get("system_prompt", "")).strip()
         if source_language is None:
             source_language = provider.get("source_language", "en")
         if target_language is None:
             target_language = provider.get("target_language", "ru")
-        return GroqTranslator(api_key=api_key, model=model or "openai/gpt-oss-20b", system_prompt=system_prompt, source_language=str(source_language), target_language=str(target_language))
+        return GroqTranslator(api_key=api_key, model=model, system_prompt=system_prompt, source_language=str(source_language), target_language=str(target_language))
 
     def _create_openrouter(self, source_language: Optional[str] = None, target_language: Optional[str] = None) -> BaseTranslator:
         provider = config.get("providers", "openrouter") or {}
