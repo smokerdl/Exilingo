@@ -52,6 +52,7 @@ class _InputSignals(QObject):
 class ExilingoApp:
     def __init__(self):
         self.logger = get_logger("Main")
+        self._startup_cancelled = False
 
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
@@ -129,15 +130,17 @@ class ExilingoApp:
                 "Path of Exile log path is not configured. Opening settings for first-time setup."
             )
             if not self._open_settings_dialog():
-                raise RuntimeError(
-                    "Path of Exile log path is not configured. Configure general.log_path in Settings."
-                )
+                self.logger.info("Startup cancelled by user from first-run settings.")
+                self._startup_cancelled = True
+                self._stop_background_components()
+                return
             log_path = config.log_path
 
         if not log_path:
-            raise RuntimeError(
-                "Path of Exile log path is not configured. Configure general.log_path in Settings."
-            )
+            self.logger.info("Startup cancelled: Path of Exile log path is still not configured.")
+            self._startup_cancelled = True
+            self._stop_background_components()
+            return
 
         self.logger.info("Using Path of Exile log path: %s", log_path)
         self.log_reader = LogReaderThread(
@@ -209,20 +212,46 @@ class ExilingoApp:
     # Shutdown / settings
     # =======================================================
 
+    def _stop_background_components(self):
+        """Stop components that may already have been started during startup."""
+        log_reader = getattr(self, "log_reader", None)
+        if log_reader is not None:
+            try:
+                log_reader.stop()
+            except Exception:
+                self.logger.exception("Error while stopping LogReader.")
+
+        translation_manager = getattr(self, "translation_manager", None)
+        if translation_manager is not None:
+            try:
+                translation_manager.stop()
+            except Exception:
+                self.logger.exception("Error while stopping translation worker.")
+
+        mouse_listener = getattr(self, "mouse_listener", None)
+        if mouse_listener is not None:
+            try:
+                mouse_listener.stop()
+            except Exception:
+                self.logger.exception("Error while stopping global mouse listener.")
+
+        hotkey_manager = getattr(self, "hotkey_manager", None)
+        if hotkey_manager is not None:
+            try:
+                hotkey_manager.stop()
+            except Exception:
+                self.logger.exception("Error while stopping configured hotkeys.")
+
+        tray_icon = getattr(self, "tray_icon", None)
+        if tray_icon is not None:
+            try:
+                tray_icon.hide()
+            except Exception:
+                self.logger.exception("Error while hiding system tray icon.")
+
     def close_application(self):
         self.logger.info("Application shutdown requested.")
-        try:
-            self.mouse_listener.stop()
-        except Exception:
-            self.logger.exception("Error while stopping global mouse listener.")
-        try:
-            self.hotkey_manager.stop()
-        except Exception:
-            self.logger.exception("Error while stopping configured hotkeys.")
-        try:
-            self.tray_icon.hide()
-        except Exception:
-            self.logger.exception("Error while hiding system tray icon.")
+        self._stop_background_components()
         self.app.quit()
 
     def _apply_runtime_settings(self):
@@ -419,6 +448,10 @@ class ExilingoApp:
         self.logger.info("LogReader: %s", status)
 
     def run(self):
+        if self._startup_cancelled:
+            self.logger.info("Startup cancelled by user; exiting cleanly.")
+            return
+
         self.log_reader.start()
         self.logger.info("LogReader monitoring started.")
         self._sync_overlay_with_game_window()
@@ -433,16 +466,7 @@ class ExilingoApp:
         ret = self.app.exec()
 
         self.logger.info("Qt event loop finished with exit code %s.", ret)
-        self.log_reader.stop()
-        self.translation_manager.stop()
-        try:
-            self.mouse_listener.stop()
-        except Exception:
-            self.logger.exception("Error while stopping global mouse listener.")
-        try:
-            self.hotkey_manager.stop()
-        except Exception:
-            self.logger.exception("Error while stopping configured hotkeys.")
+        self._stop_background_components()
         sys.exit(ret)
 
 
