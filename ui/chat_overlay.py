@@ -1,7 +1,7 @@
 import sys
 import ctypes
 
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSignal as Signal, QObject, pyqtSlot, QEvent, QTimer, QPoint
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton,
     QLabel, QFrame, QApplication, QSizeGrip, QComboBox,
@@ -209,7 +209,8 @@ class ChatOverlay(QWidget):
             style |= WS_EX_TRANSPARENT | WS_EX_LAYERED
         else:
             style &= ~WS_EX_TRANSPARENT
-        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style
+        )
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -311,8 +312,7 @@ class ChatOverlay(QWidget):
 
     def is_global_point_inside_interactive_area(self, x: int, y: int) -> bool:
         """Check both the overlay and an open channel popup."""
-        point = self.mapFromGlobal(__import__("PyQt6.QtCore", fromlist=["QPoint"]).QPoint(x, y))
-        if self.rect().contains(point):
+        if self.rect().contains(self.mapFromGlobal(QPoint(x, y))):
             return True
 
         popup_geometry = self.interactive_popup_geometry()
