@@ -21,12 +21,9 @@ VALID_CHANNELS = {
     "party",
     "guild",
     "whisper",
+    "outgoing",
 }
 
-
-# ============================================================
-# RoutingDecision
-# ============================================================
 
 @dataclass(slots=True)
 class RoutingDecision:
@@ -40,10 +37,6 @@ class RoutingDecision:
     should_translate: bool = True
     skip_reason: Optional[str] = None
 
-
-# ============================================================
-# TranslationRouter
-# ============================================================
 
 class TranslationRouter:
     """
@@ -72,18 +65,7 @@ class TranslationRouter:
             skip_reason=None,
         )
 
-    # ========================================================
-    # Направление
-    # ========================================================
-
     def _resolve_direction(self, context: MessageContext) -> str:
-        """
-        Определяет направление сообщения.
-
-        LogParser использует значения From/To.
-        Дополнительно поддерживаем внутренние значения
-        incoming/outgoing и их очевидные варианты.
-        """
         direction = context.direction
 
         if direction is None:
@@ -103,21 +85,18 @@ class TranslationRouter:
 
         return INCOMING
 
-    # ========================================================
-    # Канал
-    # ========================================================
-
     def _resolve_channel(
         self,
         context: MessageContext,
         direction: str,
     ) -> str:
         """
-        Для incoming используется реальный канал.
-        Для outgoing используется маршрут Whisper.
+        Incoming uses its actual chat channel.
+        All outgoing messages use the dedicated logical channel
+        'outgoing', whose provider route is stored in outgoing_route.
         """
         if direction == OUTGOING:
-            return "whisper"
+            return OUTGOING
 
         channel = context.channel
 
@@ -126,14 +105,10 @@ class TranslationRouter:
 
         normalized = str(channel).strip().lower()
 
-        if normalized in VALID_CHANNELS:
+        if normalized in VALID_CHANNELS and normalized != OUTGOING:
             return normalized
 
         return "global"
-
-    # ========================================================
-    # Очередь провайдеров
-    # ========================================================
 
     def _resolve_providers(self, channel: str) -> List[str]:
         providers = config.route(channel)
@@ -157,10 +132,6 @@ class TranslationRouter:
 
         return result or ["google"]
 
-    # ========================================================
-    # Языки
-    # ========================================================
-
     def _resolve_languages(
         self,
         providers: List[str],
@@ -175,10 +146,6 @@ class TranslationRouter:
             return config.provider_outgoing_languages(provider_id)
 
         return config.provider_languages(provider_id)
-
-    # ========================================================
-    # Удобные публичные методы
-    # ========================================================
 
     def route_for_context(self, context: MessageContext) -> List[str]:
         return self.resolve(context).providers
@@ -196,10 +163,6 @@ class TranslationRouter:
     def is_incoming(self, context: MessageContext) -> bool:
         return self._resolve_direction(context) == INCOMING
 
-
-# ============================================================
-# Standalone test
-# ============================================================
 
 if __name__ == "__main__":
     from .models import ChatMessage
