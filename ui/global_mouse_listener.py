@@ -78,14 +78,7 @@ class GlobalMouseListener(QObject):
                 data = ctypes.cast(
                     l_param, ctypes.POINTER(MSLLHOOKSTRUCT)
                 ).contents
-                x = int(data.pt.x)
-                y = int(data.pt.y)
-                print(
-                    f"[GlobalMouseHook] LMB x={x} y={y} "
-                    f"thread={threading.get_ident()}",
-                    flush=True,
-                )
-                self.left_click.emit(x, y)
+                self.left_click.emit(int(data.pt.x), int(data.pt.y))
 
             return self._user32.CallNextHookEx(
                 self._hook, n_code, w_param, l_param
@@ -94,10 +87,6 @@ class GlobalMouseListener(QObject):
         # Keep the ctypes callback alive for the entire lifetime of the hook.
         self._callback = callback
 
-        # WH_MOUSE_LL is a global hook (dwThreadId=0). The callback lives in
-        # this Python process, so pass NULL for hMod. The previous code passed
-        # a module handle obtained through an incompletely declared ctypes API;
-        # on 64-bit Windows that could produce ERROR_MOD_NOT_FOUND (126).
         ctypes.set_last_error(0)
         self._hook = self._user32.SetWindowsHookExW(
             self.WH_MOUSE_LL, self._callback, None, 0
@@ -112,12 +101,6 @@ class GlobalMouseListener(QObject):
             self._callback = None
             self._thread_id = None
             return
-
-        print(
-            f"[GlobalMouseHook] installed hook={hex(int(self._hook))} "
-            f"thread={self._thread_id}",
-            flush=True,
-        )
 
         msg = wintypes.MSG()
         while not self._stop_event.is_set():
