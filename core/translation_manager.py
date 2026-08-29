@@ -223,6 +223,20 @@ class TranslationManager(QObject):
                     )
                     continue
 
+                if self.registry.is_in_cooldown(provider_id):
+                    remaining = self.registry.cooldown_remaining(provider_id)
+                    health = self.registry.provider_health(provider_id)
+                    reason = f"cooldown {remaining:.1f}s"
+                    errors.append(f"{provider_id}: {reason}")
+                    self.logger.info(
+                        "provider skipped: provider=%r reason=%s last_error=%r consecutive_failures=%d",
+                        provider_id,
+                        reason,
+                        health.last_error,
+                        health.consecutive_failures,
+                    )
+                    continue
+
                 self.logger.info(
                     "provider attempt: provider=%r direction=%r "
                     "language=%s->%s text=%r",
@@ -248,6 +262,8 @@ class TranslationManager(QObject):
                     raise RuntimeError("Провайдер вернул пустой перевод")
 
                 provider_elapsed_ms = (time.perf_counter() - provider_started) * 1000
+
+                self.registry.record_success(provider_id)
 
                 context.translated_text = translated
                 context.display_text = self._build_outgoing_display(
@@ -284,12 +300,14 @@ class TranslationManager(QObject):
                 provider_elapsed_ms = (time.perf_counter() - provider_started) * 1000
                 error_text = str(e)
                 errors.append(f"{provider_id}: {error_text}")
+                self.registry.record_failure(provider_id, error_text)
 
                 self.logger.warning(
-                    "provider failed: provider=%r elapsed_ms=%.1f error=%r",
+                    "provider failed: provider=%r elapsed_ms=%.1f error=%r cooldown=%.1fs",
                     provider_id,
                     provider_elapsed_ms,
                     error_text,
+                    self.registry.cooldown_remaining(provider_id),
                     exc_info=True,
                 )
 
