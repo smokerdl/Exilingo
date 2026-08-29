@@ -40,12 +40,13 @@ OUTGOING_CHANNELS = {
 }
 
 
-class _HotkeySignals(QObject):
-    """Marshals global keyboard callbacks onto Qt's main thread."""
+class _InputSignals(QObject):
+    """Marshals callbacks from global input threads onto the Qt thread."""
 
     send_message = pyqtSignal()
     toggle_mode = pyqtSignal()
     toggle_visibility = pyqtSignal()
+    left_click = pyqtSignal(int, int)
 
 
 class ExilingoApp:
@@ -100,27 +101,25 @@ class ExilingoApp:
 
         self.game_chat_sender = GameChatSender()
 
-        self.hotkey_signals = _HotkeySignals()
-        self.hotkey_signals.send_message.connect(self.overlay._on_send)
-        self.hotkey_signals.toggle_mode.connect(self.on_toggle_overlay_mode)
-        self.hotkey_signals.toggle_visibility.connect(self.on_toggle_overlay_visibility)
+        self.input_signals = _InputSignals()
+        self.input_signals.send_message.connect(self.overlay._on_send)
+        self.input_signals.toggle_mode.connect(self.on_toggle_overlay_mode)
+        self.input_signals.toggle_visibility.connect(self.on_toggle_overlay_visibility)
 
         self.hotkey_manager = HotkeyManager(
             {
-                "send_message": self.hotkey_signals.send_message.emit,
-                "toggle_mode": self.hotkey_signals.toggle_mode.emit,
-                "toggle_visibility": self.hotkey_signals.toggle_visibility.emit,
+                "send_message": self.input_signals.send_message.emit,
+                "toggle_mode": self.input_signals.toggle_mode.emit,
+                "toggle_visibility": self.input_signals.toggle_visibility.emit,
             }
         )
         set_runtime_callbacks(self._apply_runtime_settings, self.hotkey_manager.reload)
 
-        # The global mouse hook is used for the interactive -> click-through
-        # transition. It reports LMB presses independently of which window is
-        # foreground, allowing us to detect a click outside the overlay even
-        # when the overlay itself has not become the Windows foreground window.
-        # The Qt signal crosses from the hook thread to the Qt main thread.
+        # The Windows low-level mouse hook runs in its own thread. Forward the
+        # event into a dedicated QObject signal before touching any Qt UI.
         self.mouse_listener = GlobalMouseListener()
-        self.mouse_listener.left_click.connect(self._on_global_left_click)
+        self.mouse_listener.left_click.connect(self.input_signals.left_click.emit)
+        self.input_signals.left_click.connect(self._on_global_left_click)
         self.mouse_listener.start()
         self.logger.info("Global mouse listener started.")
 
@@ -154,18 +153,11 @@ class ExilingoApp:
     # =======================================================
 
     def _on_global_left_click(self, x: int, y: int):
-        """Switch interactive overlay to click-through on an outside LMB.
-
-        The interactive area consists of the overlay itself and any open
-        popup belonging to the channel selector. QComboBox creates its popup
-        as a separate top-level Qt window, so it can extend beyond the
-        overlay's normal geometry and must be checked separately.
-        """
+        """Switch interactive overlay to click-through on an outside LMB."""
         if not self.overlay.is_input_mode:
             return
 
-        inside = self.overlay.is_global_point_inside_interactive_area(x, y)
-        if inside:
+        if self.overlay.is_global_point_inside_interactive_area(x, y):
             return
 
         geometry = self.overlay.geometry()
