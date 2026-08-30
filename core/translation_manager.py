@@ -13,6 +13,7 @@ from providers.base import BaseTranslator
 from .logger import get_logger
 from .models import MessageContext
 from .provider_registry import ProviderRegistry
+from .translation_cache import TranslationCache
 from .translation_router import TranslationRouter
 
 
@@ -30,11 +31,13 @@ class TranslationManager(QObject):
 
     def __init__(self, translator: Optional[BaseTranslator] = None,
                  registry: Optional[ProviderRegistry] = None,
-                 router: Optional[TranslationRouter] = None):
+                 router: Optional[TranslationRouter] = None,
+                 translation_cache: Optional[TranslationCache] = None):
         super().__init__()
         self.registry = registry or ProviderRegistry()
         self.router = router or TranslationRouter()
         self.translator = translator
+        self.translation_cache = translation_cache or TranslationCache()
         self._queue: queue.Queue[Optional[MessageContext]] = queue.Queue()
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -78,6 +81,10 @@ class TranslationManager(QObject):
     def pending_count(self) -> int:
         return self._queue.qsize()
 
+    def clear_translation_cache(self) -> None:
+        self.translation_cache.clear()
+        self.logger.debug("Translation cache cleared.")
+
     def _worker_loop(self):
         while self._running:
             context = self._queue.get()
@@ -93,7 +100,7 @@ class TranslationManager(QObject):
 
                 self.logger.info(
                     "translation completed: provider=%r direction=%r "
-                    "source=%r target=%r elapsed_ms=%.1f original=%r result=%r",
+                    "source=%r target=%r elapsed_ms=%.1f original=%r result=%r from_cache=%s",
                     context.provider,
                     context.direction,
                     context.source_language,
@@ -101,6 +108,7 @@ class TranslationManager(QObject):
                     elapsed_ms,
                     context.original_text,
                     context.display_text,
+                    context.from_cache,
                 )
 
                 self.translation_finished.emit(context)
@@ -223,6 +231,43 @@ class TranslationManager(QObject):
                     )
                     continue
 
+                cached_translation = self.translation_cache.get(
+                    provider_id,
+                    expected_source_language,
+                    expected_target_language,
+                    normalized,
+                )
+                if cached_translation is not None:
+                    provider_name = self.registry.provider_info(provider_id).name
+                    context.translated_text = cached_translation
+                    context.display_text = self._build_outgoing_display(
+                        cached_translation,
+                        prefix,
+                        whisper_target,
+                    )
+                    context.translation_success = True
+                    context.provider = provider_name
+                    context.from_cache = True
+                    context.error = None
+                    self.logger.info(
+                        "translation cache hit: provider=%r name=%r language=%s->%s text=%r result=%r",
+                        provider_id,
+                        provider_name,
+                        expected_source_language,
+                        expected_target_language,
+                        normalized,
+                        cached_translation,
+                    )
+                    return
+
+                self.logger.debug(
+                    "translation cache miss: provider=%r language=%s->%s text=%r",
+                    provider_id,
+                    expected_source_language,
+                    expected_target_language,
+                    normalized,
+                )
+
                 if self.registry.is_in_cooldown(provider_id):
                     remaining = self.registry.cooldown_remaining(provider_id)
                     health = self.registry.provider_health(provider_id)
@@ -264,6 +309,13 @@ class TranslationManager(QObject):
                 provider_elapsed_ms = (time.perf_counter() - provider_started) * 1000
 
                 self.registry.record_success(provider_id)
+                self.translation_cache.put(
+                    provider_id,
+                    expected_source_language,
+                    expected_target_language,
+                    normalized,
+                    translated,
+                )
 
                 context.translated_text = translated
                 context.display_text = self._build_outgoing_display(
@@ -288,11 +340,12 @@ class TranslationManager(QObject):
 
                 self.logger.info(
                     "provider success: provider=%r name=%r elapsed_ms=%.1f "
-                    "result=%r",
+                    "result=%r cache_size=%d",
                     provider_id,
                     translator.name,
                     provider_elapsed_ms,
                     translated,
+                    self.translation_cache.size(),
                 )
                 return
 
@@ -450,9 +503,6 @@ class TranslationManager(QObject):
     def _should_skip_translation(self, detected_language: Optional[str],
                                  expected_source_language: str,
                                  text: str) -> bool:
-        # Messages containing no Latin/Cyrillic letters cannot be translated
-        # by our configured language pipeline. Pass them through immediately
-        # instead of sending them to a provider and waiting for retries.
         if not any(self._is_cyrillic(char) or self._is_latin(char) for char in text):
             return True
 
