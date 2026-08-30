@@ -376,45 +376,18 @@ class ConfigManager:
             str(provider.get("target_language", "ru") or "ru").strip() or "ru",
         )
 
-    def provider_source_language(self, provider_id: str) -> str:
-        return self.provider_languages(provider_id)[0]
-
-    def provider_target_language(self, provider_id: str) -> str:
-        return self.provider_languages(provider_id)[1]
-
-    def provider_outgoing_languages(self, provider_id: str) -> tuple[str, str]:
-        source, target = self.provider_languages(provider_id)
-        return target, source
-
     def route(self, channel: str) -> list[str]:
+        routing = self.get("routing", default={})
+        if not isinstance(routing, dict):
+            return ["google"]
         if channel == "outgoing":
-            channel = "outgoing_route"
-        return self._normalize_route(self.get("routing", channel, default=["google"]))
+            route = routing.get("outgoing_route", ["google"])
+        else:
+            route = routing.get(channel, ["google"])
+        return self._normalize_route(route if isinstance(route, list) else ["google"])
 
-    def set_route(self, channel: str, providers: list[str]):
-        if channel == "outgoing":
-            channel = "outgoing_route"
-        self.set("routing", channel, value=self._normalize_route(providers))
-
-    def routing(self) -> dict:
+    def routes(self) -> dict[str, list[str]]:
         return {channel: self.route(channel) for channel in DEFAULT_CONFIG["routing"]}
-
-    def reset_provider(self, provider_id: str):
-        providers = DEFAULT_CONFIG["providers"]
-        if provider_id not in providers:
-            raise ValueError(f"Неизвестный провайдер: {provider_id}")
-        self.set("providers", provider_id, value=deepcopy(providers[provider_id]))
-        if provider_id in ("gemini", "groq", "openrouter"):
-            self.set_provider_api_key(provider_id, "")
-
-    def reset_routing(self):
-        self.set("routing", value=deepcopy(DEFAULT_CONFIG["routing"]))
-
-    def reset_all(self):
-        self.data = deepcopy(DEFAULT_CONFIG)
-        for provider_id in ("gemini", "groq", "openrouter"):
-            self.set_provider_api_key(provider_id, "")
-        self.save()
 
 
 config = ConfigManager()
