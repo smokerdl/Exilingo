@@ -7,7 +7,7 @@ from .logger import get_logger
 DEFAULT_HOTKEYS = {
     "send_message": "f5",
     "toggle_mode": "enter",
-    "toggle_visibility": "f6",
+    "toggle_visibility": "f10",
 }
 
 
