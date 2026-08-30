@@ -7,6 +7,9 @@ env/
 __pycache__/
 *.pyc
 
+# Runtime logs
+logs/*.log
+
 # PyInstaller
 build/
 dist/
