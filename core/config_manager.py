@@ -376,6 +376,10 @@ class ConfigManager:
             str(provider.get("target_language", "ru") or "ru").strip() or "ru",
         )
 
+    def provider_outgoing_languages(self, provider_id: str) -> tuple[str, str]:
+        source, target = self.provider_languages(provider_id)
+        return target, source
+
     def route(self, channel: str) -> list[str]:
         routing = self.get("routing", default={})
         if not isinstance(routing, dict):
