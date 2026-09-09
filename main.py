@@ -28,6 +28,7 @@ from ui.settings_dialog import SettingsDialog
 from ui._interaction_patch import set_mode_change_callback
 from ui._settings_runtime_patch import set_runtime_callbacks
 from ui.global_mouse_listener import GlobalMouseListener
+from ui import _chat_channel_filter_patch  # noqa: F401 - installs channel filters
 
 
 OUTGOING_CHANNELS = {
@@ -139,10 +140,6 @@ class ExilingoApp:
         self.logger.info("Using Path of Exile log path: %s", log_path)
         self._ensure_log_reader(log_path)
 
-    # =======================================================
-    # Global mouse / overlay mode
-    # =======================================================
-
     def _on_global_left_click(self, x: int, y: int):
         """Switch interactive overlay to click-through on an outside LMB."""
         if not self.overlay.is_input_mode:
@@ -173,10 +170,6 @@ class ExilingoApp:
         )
         self.on_toggle_overlay_mode()
 
-    # =======================================================
-    # System tray / visibility
-    # =======================================================
-
     def _show_overlay_from_tray(self):
         self.overlay_state.manual_show()
 
@@ -196,10 +189,6 @@ class ExilingoApp:
         self.logger.info("Overlay visibility hotkey pressed.")
         self.overlay_state.toggle_user_visibility()
 
-    # =======================================================
-    # Startup/runtime helpers
-    # =======================================================
-
     def _ensure_log_reader(self, log_path: str):
         """Create the LogReader once a valid path becomes available."""
         if self.log_reader is not None:
@@ -218,10 +207,6 @@ class ExilingoApp:
         self.log_reader.new_chat_message.connect(self.on_new_chat_message)
         self.log_reader.window_focus_changed.connect(self.on_game_focus_changed)
         self.log_reader.status_changed.connect(self.on_log_status)
-
-    # =======================================================
-    # Shutdown / settings
-    # =======================================================
 
     def _stop_background_components(self):
         """Stop components that may already have been started during startup."""
@@ -282,9 +267,6 @@ class ExilingoApp:
         except (TypeError, ValueError):
             self.logger.warning("Invalid overlay font size in config; keeping current font size.")
 
-        # First-run settings are a nested modal dialog inside ExilingoApp.__init__.
-        # When Apply is pressed, the dialog must be able to make a newly entered
-        # log path available immediately, without waiting for the dialog to close.
         if config.log_path:
             self._ensure_log_reader(config.log_path)
 
@@ -309,10 +291,6 @@ class ExilingoApp:
 
     def open_settings(self):
         self._open_settings_dialog()
-
-    # =======================================================
-    # Overlay / PoE state
-    # =======================================================
 
     def on_toggle_overlay_mode(self):
         target = not self.overlay_state.desired_input_mode
@@ -344,10 +322,6 @@ class ExilingoApp:
 
         self.overlay_state.desired_input_mode = bool(self.overlay.is_input_mode)
         self.overlay_state.set_initial_game_state(foreground)
-
-    # =======================================================
-    # Chat / translation pipeline
-    # =======================================================
 
     def on_new_chat_message(self, msg: ChatMessage):
         self.logger.info(
