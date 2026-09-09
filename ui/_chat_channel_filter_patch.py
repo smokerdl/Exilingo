@@ -8,7 +8,10 @@ before messages enter the translation queue.
 
 from __future__ import annotations
 
-from core.config_manager import config
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+
+from core.config_manager import ConfigManager, config
 from core.translation_manager import TranslationManager
 from ui.chat_overlay import ChatOverlay
 
@@ -24,6 +27,18 @@ CHAT_FILTER_CHANNELS = (
 CHAT_FILTER_IDS = frozenset(channel_id for channel_id, _title in CHAT_FILTER_CHANNELS)
 
 
+# Compatibility for the outgoing-language resolver introduced before the
+# ConfigManager method was accidentally removed. Keep this local so current
+# builds remain functional; the canonical implementation should remain in
+# ConfigManager once the related fix is merged.
+if not hasattr(ConfigManager, "provider_outgoing_languages"):
+    def _provider_outgoing_languages(self, provider_id: str) -> tuple[str, str]:
+        source, target = self.provider_languages(provider_id)
+        return target, source
+
+    ConfigManager.provider_outgoing_languages = _provider_outgoing_languages
+
+
 def _channel_enabled(channel_id: str) -> bool:
     if channel_id not in CHAT_FILTER_IDS:
         return True
@@ -36,30 +51,10 @@ def _set_channel_enabled(channel_id: str, enabled: bool) -> None:
     config.set("chat_filters", channel_id, value=bool(enabled))
 
 
-class _ChatChannelFilterMixin:
-    """Methods mixed into ChatOverlay by the runtime patch."""
-
-    def is_chat_channel_enabled(self, channel_id: str) -> bool:
-        return _channel_enabled(channel_id)
-
-    def set_chat_channel_enabled(self, channel_id: str, enabled: bool) -> None:
-        _set_channel_enabled(channel_id, enabled)
-        bar = getattr(self, "chat_channel_filter_bar", None)
-        if bar is not None:
-            button = bar.button_for_channel(channel_id)
-            if button is not None and button.isChecked() != bool(enabled):
-                button.setChecked(bool(enabled))
-
-
-class ChatChannelFilterBar(__import__("PyQt6.QtWidgets", fromlist=["QWidget"]).QWidget):
+class ChatChannelFilterBar(QWidget):
     """PoE-like channel filter buttons for interactive Exilingo mode."""
 
     def __init__(self, parent=None):
-        from PyQt6.QtCore import pyqtSignal
-        from PyQt6.QtWidgets import QHBoxLayout, QPushButton
-
-        # Signals are stored on the instance to avoid introducing another
-        # import-time QObject subclass dependency in the patch module.
         super().__init__(parent)
         self._buttons = {}
 
@@ -131,11 +126,11 @@ class ChatChannelFilterBar(__import__("PyQt6.QtWidgets", fromlist=["QWidget"]).Q
 
     def load_state(self):
         for channel_id, _title in CHAT_FILTER_CHANNELS:
-            button = self._buttons[channel_id]
-            button.setChecked(_channel_enabled(channel_id))
+            self._buttons[channel_id].setChecked(_channel_enabled(channel_id))
 
     def _on_clicked(self, channel_id: str, enabled: bool):
         _set_channel_enabled(channel_id, enabled)
+
 
 
 def _patch_overlay() -> None:
@@ -158,9 +153,12 @@ def _patch_overlay() -> None:
 
     ChatOverlay.init_ui = patched_init_ui
     ChatOverlay.set_input_mode = patched_set_input_mode
-    ChatOverlay.is_chat_channel_enabled = _ChatChannelFilterMixin.is_chat_channel_enabled
-    ChatOverlay.set_chat_channel_enabled = _ChatChannelFilterMixin.set_chat_channel_enabled
+    ChatOverlay.is_chat_channel_enabled = lambda self, channel_id: _channel_enabled(channel_id)
+    ChatOverlay.set_chat_channel_enabled = (
+        lambda self, channel_id, enabled: _set_channel_enabled(channel_id, enabled)
+    )
     ChatOverlay._chat_channel_filter_patched = True
+
 
 
 def _patch_translation_manager() -> None:
@@ -170,8 +168,8 @@ def _patch_translation_manager() -> None:
     original_enqueue = TranslationManager.enqueue
 
     def patched_enqueue(self, context):
-        # LatestClient messages are incoming for Exilingo. Outgoing messages
-        # are created by the overlay and must never be blocked by display filters.
+        # Incoming messages from LatestClient are filtered here. Outgoing
+        # messages created by the overlay are never affected by display filters.
         if context.direction is None and context.channel in CHAT_FILTER_IDS:
             if not _channel_enabled(context.channel):
                 self.logger.debug(
