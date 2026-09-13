@@ -24,11 +24,11 @@ class GoogleTranslateTranslator(BaseTranslator):
     REQUEST_TIMEOUT_SECONDS = 10
     MAX_ATTEMPTS = 3
     RETRY_DELAY_SECONDS = 0.8
+    RATE_LIMIT_COOLDOWN_SECONDS = 30.0
 
     USER_AGENT = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/131.0.0.0 Safari/537.36"
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     )
 
     def __init__(
@@ -50,6 +50,7 @@ class GoogleTranslateTranslator(BaseTranslator):
                 "Accept-Language": "en-US,en;q=0.9",
             }
         )
+        self._rate_limited_until = 0.0
 
     def translate(
         self,
@@ -73,6 +74,13 @@ class GoogleTranslateTranslator(BaseTranslator):
         if src == dst:
             return text
 
+        rate_limit_remaining = self._rate_limit_remaining()
+        if rate_limit_remaining > 0:
+            raise RuntimeError(
+                "Google Translate rate limited (HTTP 429); "
+                f"retry after {rate_limit_remaining:.1f}s"
+            )
+
         params = {
             "sl": src,
             "tl": dst,
@@ -92,6 +100,16 @@ class GoogleTranslateTranslator(BaseTranslator):
                     params=params,
                     timeout=self.REQUEST_TIMEOUT_SECONDS,
                 )
+
+                if response.status_code == 429:
+                    self._rate_limited_until = (
+                        time.monotonic() + self.RATE_LIMIT_COOLDOWN_SECONDS
+                    )
+                    raise RuntimeError(
+                        "Google Translate rate limited (HTTP 429); "
+                        f"retry after {self.RATE_LIMIT_COOLDOWN_SECONDS:.1f}s"
+                    )
+
                 response.raise_for_status()
 
                 soup = BeautifulSoup(response.text, "html.parser")
@@ -121,3 +139,6 @@ class GoogleTranslateTranslator(BaseTranslator):
         raise RuntimeError(
             f"Google Translate failed after {self.MAX_ATTEMPTS} attempts: {last_error}"
         ) from last_error
+
+    def _rate_limit_remaining(self) -> float:
+        return max(0.0, self._rate_limited_until - time.monotonic())
