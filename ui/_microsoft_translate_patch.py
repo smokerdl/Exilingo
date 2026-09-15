@@ -28,13 +28,10 @@ from .settings_dialog import PROVIDER_NAMES, SettingsDialog
 
 
 MICROSOFT_PROVIDER_NAME = "Microsoft Translator"
-
 PROVIDER_NAMES[MICROSOFT_PROVIDER_ID] = MICROSOFT_PROVIDER_NAME
-
 
 _original_provider_pages = SettingsDialog._build_provider_pages
 _original_provider_is_available = SettingsDialog._provider_is_available
-_original_available_provider_ids = SettingsDialog._available_provider_ids
 _original_load_all_settings = SettingsDialog._load_all_settings
 _original_save_all_settings = SettingsDialog._save_all_settings
 _original_reset_provider = SettingsDialog._reset_provider
@@ -42,11 +39,10 @@ _original_init = SettingsDialog.__init__
 
 
 def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
+    from PyQt6.QtWidgets import QVBoxLayout
+
     page = QWidget()
-    layout = page.layout()
-    if layout is None:
-        from PyQt6.QtWidgets import QVBoxLayout
-        layout = QVBoxLayout(page)
+    layout = QVBoxLayout(page)
 
     group = QGroupBox(MICROSOFT_PROVIDER_NAME)
     form = QFormLayout(group)
@@ -75,7 +71,7 @@ def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
     dialog.microsoft_endpoint = endpoint
 
     region = QLineEdit()
-    region.setPlaceholderText("Не требуется для Global Translator resource")
+    region.setPlaceholderText("Не требуется для Global Translator Resource")
     form.addRow("Region:", region)
     dialog.microsoft_region = region
 
@@ -113,6 +109,9 @@ def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
         test_status.setStyleSheet("")
         test_status.setText("Проверка...")
 
+        signals = settings_patch._ProviderTestSignals()
+        dialog.__dict__.setdefault("_microsoft_test_signals", []).append(signals)
+
         def worker():
             started = time.perf_counter()
             try:
@@ -123,46 +122,52 @@ def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
                     endpoint=endpoint_value,
                     region=region_value,
                 )
-                en_result = translator.translate(
+                first_result = translator.translate(
                     "Hello, how are you?",
                     source_language=source_value,
                     target_language=target_value,
                 )
-                reverse_result = translator.translate(
+                second_result = translator.translate(
                     "Привет, как дела?",
                     source_language=target_value,
                     target_language=source_value,
                 )
-                elapsed_ms = (time.perf_counter() - started) * 1000
-                return True, elapsed_ms, en_result, reverse_result, ""
+                result = (
+                    True,
+                    (time.perf_counter() - started) * 1000,
+                    first_result,
+                    second_result,
+                    "",
+                )
             except Exception as exc:
-                elapsed_ms = (time.perf_counter() - started) * 1000
-                return False, elapsed_ms, "", "", str(exc) or exc.__class__.__name__
+                result = (
+                    False,
+                    (time.perf_counter() - started) * 1000,
+                    "",
+                    "",
+                    str(exc) or exc.__class__.__name__,
+                )
+            signals.finished.emit(result)
 
         def finished(result):
-            success, elapsed_ms, en_result, reverse_result, error = result
+            success, elapsed_ms, first_result, second_result, error = result
             test_button.setEnabled(True)
             if success:
                 test_status.setText(
                     f"✓ Работает — {elapsed_ms:.0f} мс\n"
-                    f"{source_value.upper()} → {target_value.upper()}: {en_result}\n"
-                    f"{target_value.upper()} → {source_value.upper()}: {reverse_result}"
+                    f"{source_value.upper()} → {target_value.upper()}: {first_result}\n"
+                    f"{target_value.upper()} → {source_value.upper()}: {second_result}"
                 )
                 test_status.setStyleSheet("color: #66CCFF;")
             else:
                 test_status.setText(f"✗ Ошибка — {elapsed_ms:.0f} мс\n{error}")
                 test_status.setStyleSheet("color: #FF7777;")
 
-        worker_thread = threading.Thread(target=lambda: _emit_test_result(worker(), finished), daemon=True)
-        worker_thread.start()
-
-    def _emit_test_result(result, callback):
-        # Qt widgets must be updated from the GUI thread. Re-enter through a zero-delay
-        # single-shot timer owned by the dialog.
-        from PyQt6.QtCore import QTimer
-        QTimer.singleShot(0, lambda: callback(result))
+        signals.finished.connect(finished)
+        threading.Thread(target=worker, daemon=True).start()
 
     test_button.clicked.connect(run_test)
+    dialog.microsoft_test_button = test_button
 
     reset_button = QPushButton("Восстановить настройки по умолчанию")
     reset_button.clicked.connect(lambda: dialog._reset_provider(MICROSOFT_PROVIDER_ID))
@@ -189,7 +194,6 @@ SettingsDialog._build_provider_pages = _patched_build_provider_pages
 def _patched_provider_is_available(self: SettingsDialog, provider_id: str) -> bool:
     if provider_id != MICROSOFT_PROVIDER_ID:
         return _original_provider_is_available(self, provider_id)
-
     enabled_widget = getattr(self, "microsoft_enabled", None)
     api_key_widget = getattr(self, "microsoft_api_key", None)
     return (
@@ -201,16 +205,6 @@ def _patched_provider_is_available(self: SettingsDialog, provider_id: str) -> bo
 
 
 SettingsDialog._provider_is_available = _patched_provider_is_available
-
-
-def _patched_available_provider_ids(self: SettingsDialog):
-    result = list(_original_available_provider_ids(self))
-    if _patched_provider_is_available(self, MICROSOFT_PROVIDER_ID):
-        result.append(MICROSOFT_PROVIDER_ID)
-    return result
-
-
-SettingsDialog._available_provider_ids = _patched_available_provider_ids
 
 
 def _patched_load_all_settings(self: SettingsDialog):
@@ -264,18 +258,11 @@ SettingsDialog._reset_provider = _patched_reset_provider
 
 def _patched_init(self: SettingsDialog, *args, **kwargs):
     _original_init(self, *args, **kwargs)
-    # _settings_dialog_patch installed its own runtime hooks first. The provider page
-    # must exist before the dialog's final provider-list selection is used, so select it
-    # only after our page is added by the patched _build_provider_pages above.
-    if not config.get_provider(MICROSOFT_PROVIDER_ID):
-        config.data["providers"][MICROSOFT_PROVIDER_ID] = dict(DEFAULT_CONFIG["providers"][MICROSOFT_PROVIDER_ID])
 
 
 SettingsDialog.__init__ = _patched_init
 
 
-# Ensure the provider test helper in _settings_dialog_patch can also test Microsoft
-# when another part of the UI invokes the shared helper directly.
 _original_run_provider_test = settings_patch._run_provider_test
 
 
@@ -292,16 +279,24 @@ def _patched_run_provider_test(provider_id: str, settings: dict):
             endpoint=str(settings.get("endpoint") or MICROSOFT_DEFAULT_ENDPOINT).strip() or MICROSOFT_DEFAULT_ENDPOINT,
             region=str(settings.get("region") or "").strip(),
         )
-        en_result = translator.translate("Hello, how are you?", settings.get("source_language", "en"), settings.get("target_language", "ru"))
-        ru_result = translator.translate("Привет, как дела?", settings.get("target_language", "ru"), settings.get("source_language", "en"))
+        first_result = translator.translate(
+            "Hello, how are you?",
+            settings.get("source_language", "en"),
+            settings.get("target_language", "ru"),
+        )
+        second_result = translator.translate(
+            "Привет, как дела?",
+            settings.get("target_language", "ru"),
+            settings.get("source_language", "en"),
+        )
         elapsed_ms = (time.perf_counter() - started) * 1000
         return settings_patch._ProviderTestResult(
             provider_id=provider_id,
             success=True,
             elapsed_ms=elapsed_ms,
             message="Проверка завершена успешно.",
-            en_result=str(en_result or ""),
-            ru_result=str(ru_result or ""),
+            en_result=str(first_result or ""),
+            ru_result=str(second_result or ""),
         )
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - started) * 1000
