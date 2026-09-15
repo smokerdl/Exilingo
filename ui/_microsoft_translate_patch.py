@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 import time
 
 from PyQt6.QtCore import Qt
@@ -8,11 +7,11 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidgetItem,
     QPushButton,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -35,12 +34,9 @@ _original_provider_is_available = SettingsDialog._provider_is_available
 _original_load_all_settings = SettingsDialog._load_all_settings
 _original_save_all_settings = SettingsDialog._save_all_settings
 _original_reset_provider = SettingsDialog._reset_provider
-_original_init = SettingsDialog.__init__
 
 
 def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
-    from PyQt6.QtWidgets import QVBoxLayout
-
     page = QWidget()
     layout = QVBoxLayout(page)
 
@@ -85,95 +81,10 @@ def _build_microsoft_page(dialog: SettingsDialog) -> QWidget:
     info.setWordWrap(True)
     layout.addWidget(info)
 
-    test_row = QHBoxLayout()
-    test_button = QPushButton("Проверить")
-    test_status = QLabel("Не проверено")
-    test_status.setWordWrap(True)
-    test_row.addWidget(test_button)
-    test_row.addWidget(test_status, 1)
-    layout.addLayout(test_row)
-
-    def run_test():
-        api_key_value = dialog.microsoft_api_key.text().strip()
-        source_value = dialog.microsoft_source_language.text().strip() or "en"
-        target_value = dialog.microsoft_target_language.text().strip() or "ru"
-        endpoint_value = dialog.microsoft_endpoint.text().strip() or MICROSOFT_DEFAULT_ENDPOINT
-        region_value = dialog.microsoft_region.text().strip()
-
-        if not api_key_value:
-            test_status.setText("✗ API key не задан")
-            test_status.setStyleSheet("color: #FF7777;")
-            return
-
-        test_button.setEnabled(False)
-        test_status.setStyleSheet("")
-        test_status.setText("Проверка...")
-
-        signals = settings_patch._ProviderTestSignals()
-        dialog.__dict__.setdefault("_microsoft_test_signals", []).append(signals)
-
-        def worker():
-            started = time.perf_counter()
-            try:
-                translator = MicrosoftTranslateTranslator(
-                    api_key=api_key_value,
-                    source_language=source_value,
-                    target_language=target_value,
-                    endpoint=endpoint_value,
-                    region=region_value,
-                )
-                first_result = translator.translate(
-                    "Hello, how are you?",
-                    source_language=source_value,
-                    target_language=target_value,
-                )
-                second_result = translator.translate(
-                    "Привет, как дела?",
-                    source_language=target_value,
-                    target_language=source_value,
-                )
-                result = (
-                    True,
-                    (time.perf_counter() - started) * 1000,
-                    first_result,
-                    second_result,
-                    "",
-                )
-            except Exception as exc:
-                result = (
-                    False,
-                    (time.perf_counter() - started) * 1000,
-                    "",
-                    "",
-                    str(exc) or exc.__class__.__name__,
-                )
-            signals.finished.emit(result)
-
-        def finished(result):
-            success, elapsed_ms, first_result, second_result, error = result
-            test_button.setEnabled(True)
-            if success:
-                test_status.setText(
-                    f"✓ Работает — {elapsed_ms:.0f} мс\n"
-                    f"{source_value.upper()} → {target_value.upper()}: {first_result}\n"
-                    f"{target_value.upper()} → {source_value.upper()}: {second_result}"
-                )
-                test_status.setStyleSheet("color: #66CCFF;")
-            else:
-                test_status.setText(f"✗ Ошибка — {elapsed_ms:.0f} мс\n{error}")
-                test_status.setStyleSheet("color: #FF7777;")
-
-        signals.finished.connect(finished)
-        threading.Thread(target=worker, daemon=True).start()
-
-    test_button.clicked.connect(run_test)
-    dialog.microsoft_test_button = test_button
-
     reset_button = QPushButton("Восстановить настройки по умолчанию")
     reset_button.clicked.connect(lambda: dialog._reset_provider(MICROSOFT_PROVIDER_ID))
     layout.addWidget(reset_button)
     layout.addStretch()
-
     return page
 
 
@@ -194,13 +105,9 @@ SettingsDialog._build_provider_pages = _patched_build_provider_pages
 def _patched_provider_is_available(self: SettingsDialog, provider_id: str) -> bool:
     if provider_id != MICROSOFT_PROVIDER_ID:
         return _original_provider_is_available(self, provider_id)
-    enabled_widget = getattr(self, "microsoft_enabled", None)
-    api_key_widget = getattr(self, "microsoft_api_key", None)
     return (
-        enabled_widget is not None
-        and enabled_widget.currentData() is True
-        and api_key_widget is not None
-        and bool(api_key_widget.text().strip())
+        self.microsoft_enabled.currentData() is True
+        and bool(self.microsoft_api_key.text().strip())
     )
 
 
@@ -256,14 +163,19 @@ def _patched_reset_provider(self: SettingsDialog, provider_id: str):
 SettingsDialog._reset_provider = _patched_reset_provider
 
 
-def _patched_init(self: SettingsDialog, *args, **kwargs):
-    _original_init(self, *args, **kwargs)
-
-
-SettingsDialog.__init__ = _patched_init
-
-
+_original_provider_test_settings = settings_patch._provider_test_settings
 _original_run_provider_test = settings_patch._run_provider_test
+
+
+def _patched_provider_test_settings(dialog, provider_id: str) -> dict:
+    result = _original_provider_test_settings(dialog, provider_id)
+    if provider_id == MICROSOFT_PROVIDER_ID:
+        result["endpoint"] = dialog.microsoft_endpoint.text().strip() or MICROSOFT_DEFAULT_ENDPOINT
+        result["region"] = dialog.microsoft_region.text().strip()
+    return result
+
+
+settings_patch._provider_test_settings = _patched_provider_test_settings
 
 
 def _patched_run_provider_test(provider_id: str, settings: dict):
@@ -272,23 +184,17 @@ def _patched_run_provider_test(provider_id: str, settings: dict):
 
     started = time.perf_counter()
     try:
+        source = str(settings.get("source_language") or "en").strip() or "en"
+        target = str(settings.get("target_language") or "ru").strip() or "ru"
         translator = MicrosoftTranslateTranslator(
             api_key=str(settings.get("api_key") or "").strip(),
-            source_language=str(settings.get("source_language") or "en").strip() or "en",
-            target_language=str(settings.get("target_language") or "ru").strip() or "ru",
+            source_language=source,
+            target_language=target,
             endpoint=str(settings.get("endpoint") or MICROSOFT_DEFAULT_ENDPOINT).strip() or MICROSOFT_DEFAULT_ENDPOINT,
             region=str(settings.get("region") or "").strip(),
         )
-        first_result = translator.translate(
-            "Hello, how are you?",
-            settings.get("source_language", "en"),
-            settings.get("target_language", "ru"),
-        )
-        second_result = translator.translate(
-            "Привет, как дела?",
-            settings.get("target_language", "ru"),
-            settings.get("source_language", "en"),
-        )
+        first_result = translator.translate("Hello, how are you?", source, target)
+        second_result = translator.translate("Привет, как дела?", target, source)
         elapsed_ms = (time.perf_counter() - started) * 1000
         return settings_patch._ProviderTestResult(
             provider_id=provider_id,
