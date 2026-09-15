@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import hashlib
-import json
-import time
 from typing import Optional
 
 import httpx
 
-from core.config_manager import DEFAULT_CONFIG, config
+from core.config_manager import ConfigManager, DEFAULT_CONFIG, config
 from core.provider_registry import ProviderRegistry
 from providers.base import BaseTranslator
 
@@ -178,6 +175,23 @@ def _install_registry_support() -> None:
         return
 
     original_init = ProviderRegistry.__init__
+    original_provider_api_key = ConfigManager.provider_api_key
+    original_set_provider_api_key = ConfigManager.set_provider_api_key
+
+    def patched_provider_api_key(self, provider_id: str) -> str:
+        if provider_id == MICROSOFT_PROVIDER_ID:
+            return self.secrets.get("microsoft_api_key")
+        return original_provider_api_key(self, provider_id)
+
+    def patched_set_provider_api_key(self, provider_id: str, api_key: str) -> None:
+        if provider_id == MICROSOFT_PROVIDER_ID:
+            self.secrets.set("microsoft_api_key", str(api_key or "").strip())
+            return
+        original_set_provider_api_key(self, provider_id, api_key)
+
+    ConfigManager.provider_api_key = patched_provider_api_key
+    ConfigManager.set_provider_api_key = patched_set_provider_api_key
+
     ProviderRegistry._create_microsoft = _create_microsoft
 
     def patched_init(self: ProviderRegistry, *args, **kwargs):
